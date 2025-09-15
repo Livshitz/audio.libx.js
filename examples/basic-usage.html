@@ -136,7 +136,7 @@
 
 		<div class="controls">
 			<input type="url" id="audioUrl" placeholder="Enter audio URL (MP3, WAV, etc.)"
-				value="http://localhost:9090/examples/files/Jazz.wav">
+				value="./files/Jazz.wav">
 			<button id="streamBtn">Stream Audio</button>
 			<button id="playFromCacheBtn" disabled>Play from Cache</button>
 			<button id="clearCacheBtn">Clear Cache</button>
@@ -145,10 +145,10 @@
 		<div class="controls">
 			<label>Quick Examples:</label>
 			<button
-				onclick="document.getElementById('audioUrl').value='http://localhost:9090/examples/files/Jazz.wav'">WAV
+				onclick="document.getElementById('audioUrl').value='./files/Jazz.wav'">WAV
 				File (Fallback)</button>
 			<button
-				onclick="document.getElementById('audioUrl').value='http://localhost:9090/examples/files/Sorry.mp3'">MP3
+				onclick="document.getElementById('audioUrl').value='./files/Sorry.mp3'">MP3
 				File (Streaming)</button>
 		</div>
 
