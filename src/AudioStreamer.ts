@@ -245,60 +245,41 @@ export class AudioStreamer {
 			const format = this._mediaSourceHelper.detectAudioFormat(firstChunk);
 			console.log('Streaming - Detected audio format:', format);
 
-			// Handle WAV files that require conversion - use fallback approach
+			// Handle WAV files that require conversion - use direct URL streaming
 			if (format.requiresConversion && format.type === 'wav') {
-				console.log('WAV file detected in streaming - falling back to blob URL approach');
+				console.log('WAV file detected in streaming - using direct URL streaming (HTML audio element)');
 
-				// Read all remaining chunks
-				const chunks = [firstChunk];
-				while (!signal.aborted) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					chunks.push(value);
-				}
+				// Cancel the current reader since we'll let HTML audio handle the streaming
+				reader.cancel();
 
-				// Process audio if trimming is enabled
-				let audioBlob: Blob;
-				if (this._options.enableTrimming) {
-					try {
-						const processingResult = await this._processor.processAudio(chunks, {
-							trimSilence: true,
-							silenceThresholdDb: this._options.silenceThresholdDb,
-							minSilenceMs: this._options.minSilenceMs,
-							outputFormat: 'wav',
-							stripID3: false
-						});
-						audioBlob = processingResult.blob;
-						console.log('WAV file processed for silence trimming');
-					} catch (processingError) {
-						console.warn('WAV processing failed, using original file:', processingError);
-						audioBlob = new Blob(chunks as BlobPart[], { type: format.mimeType });
-					}
-				} else {
-					audioBlob = new Blob(chunks as BlobPart[], { type: format.mimeType });
-				}
+				// Use the original URL directly - let HTML audio element handle progressive loading
+				this._audioElement.src = response.url;
 
-				const url = URL.createObjectURL(audioBlob);
-				this._audioElement.src = url;
-
-				// Clean up the URL when audio ends
-				this._audioElement.addEventListener('ended', () => {
-					URL.revokeObjectURL(url);
-				}, { once: true });
-
-				// Wait for the audio to be ready, then start playback automatically
+				// Set up event listeners for consistent behavior
 				this._audioElement.addEventListener('canplay', () => {
+					console.log('WAV file ready for playback');
 					this._audioElement.play().catch(error => {
 						console.warn('Auto-play failed for WAV file:', error);
-						// If auto-play fails, still resolve as loaded but don't set playing state
-						onLoadedPromise.resolve(audioId);
 					});
 				}, { once: true });
 
-				// Set up play event listener to update state when playback actually starts
 				this._audioElement.addEventListener('play', () => {
 					this._setState('playing', audioId);
 				}, { once: true });
+
+				this._audioElement.addEventListener('loadstart', () => {
+					console.log('WAV file started loading');
+				}, { once: true });
+
+				this._audioElement.addEventListener('progress', () => {
+					// Update buffer progress based on HTML audio buffering
+					if (this._audioElement.buffered.length > 0) {
+						const bufferedEnd = this._audioElement.buffered.end(this._audioElement.buffered.length - 1);
+						const duration = this._audioElement.duration || 1;
+						const progress = bufferedEnd / duration;
+						this._emitEvent('bufferProgress', audioId, progress);
+					}
+				});
 
 				onLoadedPromise.resolve(audioId);
 				return;
