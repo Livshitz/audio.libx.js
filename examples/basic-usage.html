@@ -266,6 +266,12 @@
 		// Event handlers
 		function handleStateChange(event) {
 			streamState.textContent = event.data.state;
+
+			// Re-enable stream button when playback ends or goes idle
+			if (event.data.state === 'ended' || event.data.state === 'idle') {
+				streamBtn.disabled = false;
+			}
+
 			logEvent(`State changed to: ${event.data.state}`, event.data);
 		}
 
@@ -301,6 +307,7 @@
 		}
 
 		function handlePlayEnd(event) {
+			streamBtn.disabled = false;
 			updateStatus('Playback finished', false);
 			logEvent('Playback ended', event.audioId);
 		}

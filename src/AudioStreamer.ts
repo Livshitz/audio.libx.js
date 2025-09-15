@@ -91,11 +91,17 @@ export class AudioStreamer {
 		await this.initialize();
 
 		const id = audioId || this._generateId();
+
+		// Cancel any existing streams before starting new one
+		this._cancelAllActiveStreams();
+
 		const abortController = new AbortController();
 		this._activeStreams.set(id, abortController);
 
 		const onLoadedPromise = this._createPromise<string>();
 		const onEndedPromise = this._createPromise<string>();
+
+		this._emitEvent('loadStart', id);
 
 		try {
 			// Check cache first
@@ -103,7 +109,9 @@ export class AudioStreamer {
 				const cachedChunks = await this._cache.get(id);
 				if (cachedChunks) {
 					this._emitEvent('cacheHit', id);
-					return await this._playFromCache(id, cachedChunks, onLoadedPromise, onEndedPromise);
+					const result = await this._playFromCache(id, cachedChunks, onLoadedPromise, onEndedPromise);
+					this._emitEvent('loadEnd', id);
+					return result;
 				}
 			}
 
@@ -122,6 +130,8 @@ export class AudioStreamer {
 				onLoadedPromise.resolve(id);
 				onEndedPromise.resolve(id);
 			}
+
+			this._emitEvent('loadEnd', id);
 
 		} catch (error) {
 			this._activeStreams.delete(id);
@@ -172,6 +182,11 @@ export class AudioStreamer {
 			throw new AudioStreamingError('Caching is disabled', 'CACHE_DISABLED', audioId);
 		}
 
+		// Cancel any existing streams before starting new one
+		this._cancelAllActiveStreams();
+
+		this._emitEvent('loadStart', audioId);
+
 		const cachedChunks = await this._cache.get(audioId);
 		if (!cachedChunks) {
 			throw new AudioStreamingError('Audio not found in cache', 'CACHE_MISS', audioId);
@@ -180,7 +195,9 @@ export class AudioStreamer {
 		const onLoadedPromise = this._createPromise<string>();
 		const onEndedPromise = this._createPromise<string>();
 
-		return this._playFromCache(audioId, cachedChunks, onLoadedPromise, onEndedPromise);
+		const result = await this._playFromCache(audioId, cachedChunks, onLoadedPromise, onEndedPromise);
+		this._emitEvent('loadEnd', audioId);
+		return result;
 	}
 
 	private async _playFromCache(
@@ -561,6 +578,14 @@ export class AudioStreamer {
 		this._audioElement.pause();
 		this._audioElement.removeAttribute('src');
 		this._audioElement.load();
+
+		// Reset internal state when resetting audio element
+		this._state.canPlay = false;
+		this._state.bufferProgress = 0;
+		// Only reset to idle if not already in a loading/streaming state
+		if (this._state.state === 'ended' || this._state.state === 'error') {
+			this._setState('idle');
+		}
 	}
 
 	private _isBufferSufficient(): boolean {
@@ -594,6 +619,13 @@ export class AudioStreamer {
 			abortController.abort();
 			this._activeStreams.delete(audioId);
 		}
+	}
+
+	private _cancelAllActiveStreams(): void {
+		for (const [audioId, controller] of this._activeStreams) {
+			controller.abort();
+		}
+		this._activeStreams.clear();
 	}
 
 	private _generateId(): string {
