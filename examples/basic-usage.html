@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>audio.libx.js - Basic Usage Example</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 800px;
+			margin: 0 auto;
+			padding: 20px;
+			line-height: 1.6;
+		}
+
+		.container {
+			background: #f5f5f5;
+			padding: 20px;
+			border-radius: 8px;
+			margin: 20px 0;
+		}
+
+		button {
+			background: #007cba;
+			color: white;
+			border: none;
+			padding: 10px 20px;
+			border-radius: 4px;
+			cursor: pointer;
+			margin: 5px;
+		}
+
+		button:hover {
+			background: #005a8b;
+		}
+
+		button:disabled {
+			background: #ccc;
+			cursor: not-allowed;
+		}
+
+		.progress {
+			width: 100%;
+			height: 20px;
+			background: #ddd;
+			border-radius: 10px;
+			overflow: hidden;
+			margin: 10px 0;
+		}
+
+		.progress-bar {
+			height: 100%;
+			background: #007cba;
+			width: 0%;
+			transition: width 0.3s ease;
+		}
+
+		.status {
+			padding: 10px;
+			margin: 10px 0;
+			border-radius: 4px;
+			background: #e7f3ff;
+			border-left: 4px solid #007cba;
+		}
+
+		.error {
+			background: #ffe7e7;
+			border-left-color: #ff0000;
+		}
+
+		.controls {
+			display: flex;
+			gap: 10px;
+			flex-wrap: wrap;
+			align-items: center;
+		}
+
+		input[type="url"] {
+			flex: 1;
+			padding: 8px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			min-width: 200px;
+		}
+
+		.stats {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+			gap: 10px;
+			margin: 10px 0;
+		}
+
+		.stat-item {
+			background: white;
+			padding: 10px;
+			border-radius: 4px;
+			text-align: center;
+		}
+
+		.stat-value {
+			font-size: 1.5em;
+			font-weight: bold;
+			color: #007cba;
+		}
+
+		.log {
+			background: #f9f9f9;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			padding: 10px;
+			max-height: 200px;
+			overflow-y: auto;
+			font-family: monospace;
+			font-size: 12px;
+		}
+
+		audio {
+			width: 100%;
+			margin: 10px 0;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>audio.libx.js - Basic Usage Example</h1>
+
+	<div class="container">
+		<h2>Progressive Audio Streaming Demo</h2>
+		<p>This example demonstrates the core features of audio.libx.js including progressive streaming, caching, and
+			audio processing.</p>
+
+		<audio id="audioPlayer" controls>
+			Your browser does not support the audio element.
+		</audio>
+
+		<div class="controls">
+			<input type="url" id="audioUrl" placeholder="Enter audio URL (MP3, WAV, etc.)"
+				value="http://localhost:9090/examples/files/Jazz.wav">
+			<button id="streamBtn">Stream Audio</button>
+			<button id="playFromCacheBtn" disabled>Play from Cache</button>
+			<button id="clearCacheBtn">Clear Cache</button>
+		</div>
+
+		<div class="controls">
+			<label>Quick Examples:</label>
+			<button
+				onclick="document.getElementById('audioUrl').value='http://localhost:9090/examples/files/Jazz.wav'">WAV
+				File (Fallback)</button>
+			<button
+				onclick="document.getElementById('audioUrl').value='http://localhost:9090/examples/files/Sorry.mp3'">MP3
+				File (Streaming)</button>
+		</div>
+
+		<div class="progress">
+			<div class="progress-bar" id="bufferProgress"></div>
+		</div>
+
+		<div id="status" class="status">Ready to stream audio...</div>
+	</div>
+
+	<div class="container">
+		<h3>Statistics</h3>
+		<div class="stats">
+			<div class="stat-item">
+				<div class="stat-value" id="cacheEntries">0</div>
+				<div>Cache Entries</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-value" id="cacheSize">0 MB</div>
+				<div>Cache Size</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-value" id="hitRatio">0%</div>
+				<div>Cache Hit Ratio</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-value" id="streamState">idle</div>
+				<div>Stream State</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="container">
+		<h3>Event Log</h3>
+		<div id="eventLog" class="log"></div>
+		<button id="clearLogBtn">Clear Log</button>
+	</div>
+
+	<div class="container">
+		<h3>Configuration</h3>
+		<label>
+			<input type="checkbox" id="enableCaching" checked> Enable Caching
+		</label><br>
+		<label>
+			<input type="checkbox" id="enableTrimming" checked> Enable Silence Trimming
+		</label><br>
+		<label>
+			Buffer Threshold: <input type="range" id="bufferThreshold" min="1" max="10" value="5">
+			<span id="bufferThresholdValue">5</span>s
+		</label>
+	</div>
+
+	<script type="module">
+		// Import the library (in real usage, this would be from npm or CDN)
+		import { createAudioStreamer } from '../build/index.js';
+
+		// Get DOM elements
+		const audioPlayer = document.getElementById('audioPlayer');
+		const audioUrl = document.getElementById('audioUrl');
+		const streamBtn = document.getElementById('streamBtn');
+		const playFromCacheBtn = document.getElementById('playFromCacheBtn');
+		const clearCacheBtn = document.getElementById('clearCacheBtn');
+		const bufferProgress = document.getElementById('bufferProgress');
+		const status = document.getElementById('status');
+		const eventLog = document.getElementById('eventLog');
+		const clearLogBtn = document.getElementById('clearLogBtn');
+
+		// Stats elements
+		const cacheEntries = document.getElementById('cacheEntries');
+		const cacheSize = document.getElementById('cacheSize');
+		const hitRatio = document.getElementById('hitRatio');
+		const streamState = document.getElementById('streamState');
+
+		// Config elements
+		const enableCaching = document.getElementById('enableCaching');
+		const enableTrimming = document.getElementById('enableTrimming');
+		const bufferThreshold = document.getElementById('bufferThreshold');
+		const bufferThresholdValue = document.getElementById('bufferThresholdValue');
+
+		// State
+		let streamer = null;
+		let currentAudioId = null;
+
+		// Initialize streamer with default options
+		function initializeStreamer() {
+			if (streamer) {
+				streamer.dispose();
+			}
+
+			const options = {
+				bufferThreshold: parseInt(bufferThreshold.value),
+				enableCaching: enableCaching.checked,
+				enableTrimming: enableTrimming.checked,
+				silenceThresholdDb: -50,
+				minSilenceMs: 100
+			};
+
+			streamer = createAudioStreamer(audioPlayer, options);
+
+			// Set up event listeners
+			streamer.on('stateChange', handleStateChange);
+			streamer.on('bufferProgress', handleBufferProgress);
+			streamer.on('canPlay', handleCanPlay);
+			streamer.on('loadStart', handleLoadStart);
+			streamer.on('loadEnd', handleLoadEnd);
+			streamer.on('playStart', handlePlayStart);
+			streamer.on('playEnd', handlePlayEnd);
+			streamer.on('error', handleError);
+			streamer.on('cacheHit', handleCacheHit);
+			streamer.on('cacheMiss', handleCacheMiss);
+
+			logEvent('Streamer initialized with options:', options);
+		}
+
+		// Event handlers
+		function handleStateChange(event) {
+			streamState.textContent = event.data.state;
+			logEvent(`State changed to: ${event.data.state}`, event.data);
+		}
+
+		function handleBufferProgress(event) {
+			const progress = Math.round(event.data * 100);
+			bufferProgress.style.width = `${progress}%`;
+			logEvent(`Buffer progress: ${progress}%`);
+		}
+
+		function handleCanPlay(event) {
+			logEvent('Audio can play', event.audioId);
+		}
+
+		function handleLoadStart(event) {
+			streamBtn.disabled = true;
+			updateStatus('Loading audio...', false);
+			logEvent('Load started', event.audioId);
+		}
+
+		function handleLoadEnd(event) {
+			streamBtn.disabled = false;
+			if (currentAudioId) {
+				playFromCacheBtn.disabled = false;
+			}
+			updateStatus('Audio loaded successfully', false);
+			logEvent('Load ended', event.audioId);
+			updateStats();
+		}
+
+		function handlePlayStart(event) {
+			updateStatus('Playing audio...', false);
+			logEvent('Playback started', event.audioId);
+		}
+
+		function handlePlayEnd(event) {
+			updateStatus('Playback finished', false);
+			logEvent('Playback ended', event.audioId);
+		}
+
+		function handleError(event) {
+			streamBtn.disabled = false;
+			updateStatus(`Error: ${event.data?.message || 'Unknown error'}`, true);
+			logEvent('Error occurred:', event.data);
+		}
+
+		function handleCacheHit(event) {
+			logEvent('Cache hit', event.audioId);
+			updateStats();
+		}
+
+		function handleCacheMiss(event) {
+			logEvent('Cache miss', event.audioId);
+		}
+
+		// UI helper functions
+		function updateStatus(message, isError = false) {
+			status.textContent = message;
+			status.className = isError ? 'status error' : 'status';
+		}
+
+		function logEvent(message, data = null) {
+			const timestamp = new Date().toLocaleTimeString();
+			const logEntry = document.createElement('div');
+			logEntry.innerHTML = `<strong>${timestamp}:</strong> ${message}`;
+			if (data) {
+				logEntry.innerHTML += ` <em>${JSON.stringify(data)}</em>`;
+			}
+			eventLog.appendChild(logEntry);
+			eventLog.scrollTop = eventLog.scrollHeight;
+		}
+
+		async function updateStats() {
+			if (!streamer) return;
+
+			try {
+				const capabilities = streamer.getCapabilities();
+				if (capabilities.caching) {
+					const stats = await streamer.getCacheStats();
+					cacheEntries.textContent = stats.entryCount;
+					cacheSize.textContent = (stats.totalSize / (1024 * 1024)).toFixed(2) + ' MB';
+					hitRatio.textContent = Math.round(stats.hitRatio * 100) + '%';
+				} else {
+					cacheEntries.textContent = 'N/A';
+					cacheSize.textContent = 'N/A';
+					hitRatio.textContent = 'N/A';
+				}
+			} catch (error) {
+				logEvent('Failed to update stats:', error.message);
+			}
+		}
+
+		// Button event handlers
+		streamBtn.addEventListener('click', async () => {
+			const url = audioUrl.value.trim();
+			if (!url) {
+				updateStatus('Please enter a valid audio URL', true);
+				return;
+			}
+
+			try {
+				const result = await streamer.streamFromUrl(url);
+				currentAudioId = result.audioId;
+
+				// Wait for loading to complete
+				await result.onLoaded;
+				logEvent('Audio loaded and ready to play');
+
+				// Optionally wait for playback to end
+				result.onEnded.then(() => {
+					logEvent('Playback completed');
+				});
+
+			} catch (error) {
+				handleError({ data: error });
+			}
+		});
+
+		playFromCacheBtn.addEventListener('click', async () => {
+			if (!currentAudioId) {
+				updateStatus('No audio in cache to play', true);
+				return;
+			}
+
+			try {
+				const result = await streamer.playFromCache(currentAudioId);
+				await result.onLoaded;
+				logEvent('Playing from cache');
+			} catch (error) {
+				handleError({ data: error });
+			}
+		});
+
+		clearCacheBtn.addEventListener('click', async () => {
+			try {
+				await streamer.clearCache();
+				currentAudioId = null;
+				playFromCacheBtn.disabled = true;
+				updateStatus('Cache cleared', false);
+				logEvent('Cache cleared');
+				updateStats();
+			} catch (error) {
+				handleError({ data: error });
+			}
+		});
+
+		clearLogBtn.addEventListener('click', () => {
+			eventLog.innerHTML = '';
+		});
+
+		// Config change handlers
+		bufferThreshold.addEventListener('input', (e) => {
+			bufferThresholdValue.textContent = e.target.value;
+		});
+
+		[enableCaching, enableTrimming, bufferThreshold].forEach(element => {
+			element.addEventListener('change', () => {
+				logEvent('Configuration changed, reinitializing streamer...');
+				initializeStreamer();
+			});
+		});
+
+		// Initialize on page load
+		document.addEventListener('DOMContentLoaded', () => {
+			initializeStreamer();
+			updateStats();
+			logEvent('Demo initialized');
+		});
+
+		// Cleanup on page unload
+		window.addEventListener('beforeunload', () => {
+			if (streamer) {
+				streamer.dispose();
+			}
+		});
+	</script>
+</body>
+
+</html>

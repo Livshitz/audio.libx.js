@@ -1,0 +1,19 @@
+{
+    "extends": "../tsconfig.base.json",
+    "compilerOptions": {
+        "baseUrl": "../",
+        "outDir": "../build/tests",
+        "types": [
+            "jest",
+            "node"
+        ]
+    },
+    "include": [
+        "./**/*.ts",
+        "../src/**/*.ts"
+    ],
+    "exclude": [
+        "../node_modules/**/*",
+        "../build/**/*"
+    ]
+}
