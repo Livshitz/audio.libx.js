@@ -1,6 +1,6 @@
 {
     "name": "audio.libx.js",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Progressive audio streaming library with MediaSource Extensions, intelligent caching, and advanced audio processing",
     "main": "build/index.js",
     "module": "build/index.js",
