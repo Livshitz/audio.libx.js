@@ -1,0 +1,2599 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>audio.libx.js - Comprehensive Demo</title>
+        <style>
+            :root {
+                --primary-color: #007cba;
+                --primary-dark: #005a8b;
+                --secondary-color: #28a745;
+                --danger-color: #dc3545;
+                --warning-color: #ffc107;
+                --info-color: #17a2b8;
+                --light-bg: #f8f9fa;
+                --dark-bg: #343a40;
+                --border-color: #dee2e6;
+                --text-color: #212529;
+                --text-muted: #6c757d;
+                --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                --radius: 8px;
+                --transition: all 0.3s ease;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                line-height: 1.6;
+                color: var(--text-color);
+                margin: 0;
+                padding: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+
+            .header {
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                padding: 1rem 0;
+                box-shadow: var(--shadow);
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+
+            .header-content {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 0 1rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .logo {
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: var(--primary-color);
+            }
+
+            .version {
+                background: var(--primary-color);
+                color: white;
+                padding: 0.25rem 0.5rem;
+                border-radius: 12px;
+                font-size: 0.75rem;
+                font-weight: 500;
+            }
+
+            .main-container {
+                max-width: 1200px;
+                margin: 2rem auto;
+                padding: 0 1rem;
+            }
+
+            .tabs {
+                display: flex;
+                background: rgba(255, 255, 255, 0.9);
+                border-radius: var(--radius) var(--radius) 0 0;
+                overflow: hidden;
+                box-shadow: var(--shadow);
+                flex-wrap: wrap;
+            }
+
+            .tab {
+                flex: 1;
+                min-width: 120px;
+                padding: 1rem;
+                background: transparent;
+                border: none;
+                cursor: pointer;
+                font-weight: 500;
+                color: var(--text-muted);
+                transition: var(--transition);
+                border-bottom: 3px solid transparent;
+            }
+
+            .tab:hover {
+                background: rgba(0, 124, 186, 0.1);
+                color: var(--primary-color);
+            }
+
+            .tab.active {
+                color: var(--primary-color);
+                background: rgba(0, 124, 186, 0.1);
+                border-bottom-color: var(--primary-color);
+            }
+
+            .tab-content {
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 0 0 var(--radius) var(--radius);
+                box-shadow: var(--shadow);
+                min-height: 600px;
+            }
+
+            .tab-pane {
+                display: none;
+                padding: 2rem;
+                animation: fadeIn 0.3s ease;
+            }
+
+            .tab-pane.active {
+                display: block;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .section {
+                margin-bottom: 2rem;
+                padding: 1.5rem;
+                background: white;
+                border-radius: var(--radius);
+                box-shadow: var(--shadow);
+            }
+
+            .section-title {
+                margin: 0 0 1rem 0;
+                color: var(--primary-color);
+                font-size: 1.25rem;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .section-description {
+                color: var(--text-muted);
+                margin-bottom: 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .controls {
+                display: flex;
+                gap: 0.75rem;
+                flex-wrap: wrap;
+                align-items: center;
+                margin: 1rem 0;
+            }
+
+            .btn {
+                padding: 0.5rem 1rem;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 500;
+                font-size: 0.875rem;
+                transition: var(--transition);
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                text-decoration: none;
+            }
+
+            .btn-primary {
+                background: var(--primary-color);
+                color: white;
+            }
+
+            .btn-primary:hover:not(:disabled) {
+                background: var(--primary-dark);
+                transform: translateY(-1px);
+            }
+
+            .btn-secondary {
+                background: var(--text-muted);
+                color: white;
+            }
+
+            .btn-success {
+                background: var(--secondary-color);
+                color: white;
+            }
+
+            .btn-danger {
+                background: var(--danger-color);
+                color: white;
+            }
+
+            .btn-warning {
+                background: var(--warning-color);
+                color: var(--text-color);
+            }
+
+            .btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none !important;
+            }
+
+            .btn.recording {
+                animation: pulse 1.5s infinite;
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.7;
+                }
+            }
+
+            .form-control {
+                padding: 0.5rem 0.75rem;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                font-size: 0.875rem;
+                transition: var(--transition);
+                flex: 1;
+                min-width: 200px;
+            }
+
+            .form-control:focus {
+                outline: none;
+                border-color: var(--primary-color);
+                box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
+            }
+
+            .progress-container {
+                margin: 1rem 0;
+            }
+
+            .progress {
+                width: 100%;
+                height: 8px;
+                background: var(--light-bg);
+                border-radius: 4px;
+                overflow: hidden;
+            }
+
+            .progress-bar {
+                height: 100%;
+                background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+                width: 0%;
+                transition: width 0.3s ease;
+                border-radius: 4px;
+            }
+
+            .level-meter {
+                width: 200px;
+                height: 20px;
+                background: var(--light-bg);
+                border-radius: 10px;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .level-bar {
+                height: 100%;
+                background: linear-gradient(to right, #28a745, #ffc107, #dc3545);
+                width: 0%;
+                transition: width 0.1s ease;
+            }
+
+            .status {
+                padding: 0.75rem 1rem;
+                border-radius: 6px;
+                margin: 1rem 0;
+                border-left: 4px solid var(--info-color);
+                background: rgba(23, 162, 184, 0.1);
+                font-size: 0.875rem;
+            }
+
+            .status.error {
+                background: rgba(220, 53, 69, 0.1);
+                border-left-color: var(--danger-color);
+                color: var(--danger-color);
+            }
+
+            .status.success {
+                background: rgba(40, 167, 69, 0.1);
+                border-left-color: var(--secondary-color);
+                color: var(--secondary-color);
+            }
+
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 1rem;
+                margin: 1rem 0;
+            }
+
+            .stat-card {
+                background: var(--light-bg);
+                padding: 1rem;
+                border-radius: 6px;
+                text-align: center;
+                border: 1px solid var(--border-color);
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: var(--primary-color);
+                display: block;
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .log {
+                background: #1e1e1e;
+                color: #f8f8f2;
+                border-radius: 6px;
+                padding: 1rem;
+                max-height: 300px;
+                overflow-y: auto;
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                font-size: 0.8rem;
+                line-height: 1.4;
+            }
+
+            .log-entry {
+                margin-bottom: 0.25rem;
+            }
+
+            .log-timestamp {
+                color: #6c757d;
+            }
+
+            .log-message {
+                color: #f8f8f2;
+            }
+
+            .log-data {
+                color: #50fa7b;
+                font-style: italic;
+            }
+
+            .config-section {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1rem;
+                margin: 1rem 0;
+            }
+
+            .config-item {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .config-item label {
+                font-weight: 500;
+                font-size: 0.875rem;
+                color: var(--text-color);
+            }
+
+            .checkbox-item {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .checkbox-item input[type='checkbox'] {
+                margin: 0;
+            }
+
+            .visualizer {
+                width: 100%;
+                height: 120px;
+                background: #000;
+                border-radius: 6px;
+                margin: 1rem 0;
+            }
+
+            .audio-element {
+                width: 100%;
+                margin: 1rem 0;
+            }
+
+            .recordings-list {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+
+            .recording-item {
+                background: var(--light-bg);
+                padding: 1rem;
+                margin: 0.5rem 0;
+                border-radius: 6px;
+                border: 1px solid var(--border-color);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .recording-info {
+                flex: 1;
+            }
+
+            .recording-title {
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+            }
+
+            .recording-meta {
+                font-size: 0.8rem;
+                color: var(--text-muted);
+            }
+
+            .recording-actions {
+                display: flex;
+                gap: 0.5rem;
+            }
+
+            .duration-display {
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                font-size: 1.25rem;
+                font-weight: bold;
+                color: var(--primary-color);
+                padding: 0.5rem 1rem;
+                background: var(--light-bg);
+                border-radius: 6px;
+                border: 1px solid var(--border-color);
+            }
+
+            .processing-controls {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 1rem;
+                margin: 1rem 0;
+            }
+
+            .processing-section {
+                background: var(--light-bg);
+                padding: 1rem;
+                border-radius: 6px;
+                border: 1px solid var(--border-color);
+            }
+
+            .processing-title {
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+                color: var(--primary-color);
+            }
+
+            .range-input {
+                width: 100%;
+                margin: 0.5rem 0;
+            }
+
+            .range-value {
+                font-weight: 500;
+                color: var(--primary-color);
+            }
+
+            .feature-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 1.5rem;
+                margin: 1rem 0;
+            }
+
+            .feature-card {
+                background: white;
+                padding: 1.5rem;
+                border-radius: var(--radius);
+                box-shadow: var(--shadow);
+                border: 1px solid var(--border-color);
+            }
+
+            .feature-icon {
+                font-size: 2rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .feature-title {
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+                color: var(--primary-color);
+            }
+
+            .feature-description {
+                font-size: 0.875rem;
+                color: var(--text-muted);
+                line-height: 1.5;
+            }
+
+            .quick-examples {
+                display: flex;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+                margin: 0.5rem 0;
+            }
+
+            .quick-example {
+                padding: 0.25rem 0.5rem;
+                background: var(--light-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                font-size: 0.75rem;
+                cursor: pointer;
+                transition: var(--transition);
+            }
+
+            .quick-example:hover {
+                background: var(--primary-color);
+                color: white;
+            }
+
+            @media (max-width: 768px) {
+                .tabs {
+                    flex-direction: column;
+                }
+
+                .tab {
+                    flex: none;
+                    text-align: left;
+                }
+
+                .controls {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+
+                .controls .btn {
+                    justify-content: center;
+                }
+
+                .config-section {
+                    grid-template-columns: 1fr;
+                }
+
+                .stats-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+
+                .recording-item {
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 0.5rem;
+                }
+
+                .recording-actions {
+                    justify-content: center;
+                }
+            }
+
+            .loading {
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-radius: 50%;
+                border-top-color: white;
+                animation: spin 0.8s ease-in-out infinite;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .tooltip {
+                position: relative;
+                cursor: help;
+            }
+
+            .tooltip:hover::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                bottom: 100%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: var(--dark-bg);
+                color: white;
+                padding: 0.5rem;
+                border-radius: 4px;
+                font-size: 0.75rem;
+                white-space: nowrap;
+                z-index: 1000;
+            }
+
+            .empty-state {
+                text-align: center;
+                padding: 2rem;
+                color: var(--text-muted);
+                font-style: italic;
+            }
+
+            .empty-state-icon {
+                font-size: 3rem;
+                opacity: 0.5;
+                margin-bottom: 1rem;
+            }
+        </style>
+    </head>
+    <body>
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">🎵 audio.libx.js</div>
+                <div class="version">v0.2.0</div>
+            </div>
+        </header>
+
+        <main class="main-container">
+            <div class="tabs">
+                <button class="tab active" data-tab="overview">📖 Overview</button>
+                <button class="tab" data-tab="streaming">🎵 Streaming</button>
+                <button class="tab" data-tab="recording">🎤 Recording</button>
+                <button class="tab" data-tab="processing">⚙️ Processing</button>
+                <button class="tab" data-tab="caching">💾 Caching</button>
+                <button class="tab" data-tab="realtime">📊 Real-time</button>
+                <button class="tab" data-tab="permissions">🔒 Permissions</button>
+            </div>
+
+            <div class="tab-content">
+                <!-- Overview Tab -->
+                <div id="overview" class="tab-pane active">
+                    <div class="section">
+                        <h2 class="section-title">🎵 Welcome to audio.libx.js</h2>
+                        <p class="section-description">
+                            A comprehensive progressive audio streaming library with real-time processing, recording, and caching capabilities. Explore all
+                            features using the tabs above.
+                        </p>
+
+                        <div class="feature-grid">
+                            <div class="feature-card">
+                                <div class="feature-icon">🎵</div>
+                                <div class="feature-title">Progressive Streaming</div>
+                                <div class="feature-description">
+                                    Stream audio with MediaSource Extensions, intelligent buffering, and cross-platform compatibility including iOS
+                                    ManagedMediaSource support.
+                                </div>
+                            </div>
+
+                            <div class="feature-card">
+                                <div class="feature-icon">🎤</div>
+                                <div class="feature-title">Audio Recording</div>
+                                <div class="feature-description">
+                                    High-quality audio recording with real-time processing, permission management, and configurable quality settings.
+                                </div>
+                            </div>
+
+                            <div class="feature-card">
+                                <div class="feature-icon">⚙️</div>
+                                <div class="feature-title">Audio Processing</div>
+                                <div class="feature-description">
+                                    Advanced audio processing including silence trimming, format conversion, and audio buffer manipulation.
+                                </div>
+                            </div>
+
+                            <div class="feature-card">
+                                <div class="feature-icon">💾</div>
+                                <div class="feature-title">Intelligent Caching</div>
+                                <div class="feature-description">
+                                    Persistent IndexedDB storage with memory caching, statistics tracking, and automatic cleanup management.
+                                </div>
+                            </div>
+
+                            <div class="feature-card">
+                                <div class="feature-icon">📊</div>
+                                <div class="feature-title">Real-time Processing</div>
+                                <div class="feature-description">
+                                    Live audio analysis with effects, silence detection, level monitoring, and visual feedback.
+                                </div>
+                            </div>
+
+                            <div class="feature-card">
+                                <div class="feature-icon">🔒</div>
+                                <div class="feature-title">Permission Management</div>
+                                <div class="feature-description">
+                                    Cross-browser permission handling with user-friendly error messages and device enumeration.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">🚀 Quick Start</h3>
+                        <p class="section-description">Get started with audio.libx.js in just a few lines of code:</p>
+
+                        <div class="log">
+                            <pre><code>// Import the library
+import { createAudioStreamer, createAudioRecorder } from 'audio.libx.js';
+
+// Create audio streamer
+const audioElement = document.getElementById('audio');
+const streamer = createAudioStreamer(audioElement, {
+    enableCaching: true,
+    enableTrimming: true,
+    bufferThreshold: 5
+});
+
+// Stream audio
+const result = await streamer.streamFromUrl('path/to/audio.mp3');
+await result.onLoaded;
+
+// Create audio recorder
+const recorder = createAudioRecorder({
+    enableRealtimeProcessing: true,
+    audioBitsPerSecond: 128000
+});
+
+// Start recording
+const recording = await recorder.startRecording();
+await recording.onStarted;</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">🌐 Browser Compatibility</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-value">✅</span>
+                                <span class="stat-label">Chrome</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value">✅</span>
+                                <span class="stat-label">Firefox</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value">✅</span>
+                                <span class="stat-label">Safari 17.1+</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value">✅</span>
+                                <span class="stat-label">Edge</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Streaming Tab -->
+                <div id="streaming" class="tab-pane">
+                    <div class="section">
+                        <h2 class="section-title">🎵 Progressive Audio Streaming</h2>
+                        <p class="section-description">Stream audio with progressive loading, intelligent buffering, and persistent caching.</p>
+
+                        <audio id="audioPlayer" class="audio-element" controls>Your browser does not support the audio element.</audio>
+
+                        <div class="controls">
+                            <input type="url" id="audioUrl" class="form-control" placeholder="Enter audio URL (MP3, WAV, etc.)" value="./files/Jazz.wav" />
+                            <button id="streamBtn" class="btn btn-primary">🎵 Stream Audio</button>
+                            <button id="playFromCacheBtn" class="btn btn-secondary" disabled>💾 Play from Cache</button>
+                            <button id="clearCacheBtn" class="btn btn-warning">🗑️ Clear Cache</button>
+                        </div>
+
+                        <div class="quick-examples">
+                            <span>Quick Examples:</span>
+                            <button class="quick-example" onclick="document.getElementById('audioUrl').value='./files/Jazz.wav'">WAV File</button>
+                            <button class="quick-example" onclick="document.getElementById('audioUrl').value='./files/Sorry.mp3'">MP3 File</button>
+                        </div>
+
+                        <div class="progress-container">
+                            <div class="progress">
+                                <div class="progress-bar" id="bufferProgress"></div>
+                            </div>
+                            <small class="text-muted">Buffer Progress</small>
+                        </div>
+
+                        <div id="streamingStatus" class="status">Ready to stream audio...</div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📊 Streaming Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-value" id="cacheEntries">0</span>
+                                <span class="stat-label">Cache Entries</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="cacheSize">0 MB</span>
+                                <span class="stat-label">Cache Size</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="hitRatio">0%</span>
+                                <span class="stat-label">Cache Hit Ratio</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="streamState">idle</span>
+                                <span class="stat-label">Stream State</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">⚙️ Configuration</h3>
+                        <div class="config-section">
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="enableCaching" checked />
+                                <label for="enableCaching">Enable Caching</label>
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="enableTrimming" checked />
+                                <label for="enableTrimming">Enable Silence Trimming</label>
+                            </div>
+                            <div class="config-item">
+                                <label for="bufferThreshold">Buffer Threshold: <span id="bufferThresholdValue" class="range-value">5</span>s</label>
+                                <input type="range" id="bufferThreshold" class="range-input" min="1" max="10" value="5" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📋 Event Log</h3>
+                        <div id="streamingEventLog" class="log"></div>
+                        <button id="clearStreamingLogBtn" class="btn btn-secondary">Clear Log</button>
+                    </div>
+                </div>
+
+                <!-- Recording Tab -->
+                <div id="recording" class="tab-pane">
+                    <div class="section">
+                        <h2 class="section-title">🎤 Audio Recording</h2>
+                        <p class="section-description">Record high-quality audio with real-time processing, level monitoring, and visual feedback.</p>
+
+                        <div class="controls">
+                            <button id="startRecordingBtn" class="btn btn-primary">🎤 Start Recording</button>
+                            <button id="stopRecordingBtn" class="btn btn-danger" disabled>⏹️ Stop</button>
+                            <button id="pauseRecordingBtn" class="btn btn-warning" disabled>⏸️ Pause</button>
+                            <button id="resumeRecordingBtn" class="btn btn-success" disabled>▶️ Resume</button>
+                            <button id="testPermissionBtn" class="btn btn-secondary">🔒 Test Permission</button>
+                        </div>
+
+                        <div class="controls">
+                            <div class="duration-display" id="recordingDuration">00:00</div>
+                            <div class="level-meter">
+                                <div class="level-bar" id="recordingLevelBar"></div>
+                            </div>
+                        </div>
+
+                        <canvas id="recordingVisualizer" class="visualizer" width="800" height="120"></canvas>
+
+                        <div id="recordingStatus" class="status">Ready to record...</div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">⚙️ Recording Configuration</h3>
+                        <div class="config-section">
+                            <div class="config-item">
+                                <label for="recordingMimeType">MIME Type:</label>
+                                <select id="recordingMimeType" class="form-control">
+                                    <option value="">Auto-detect</option>
+                                    <option value="audio/webm;codecs=opus">WebM Opus</option>
+                                    <option value="audio/webm">WebM</option>
+                                    <option value="audio/mp4">MP4</option>
+                                    <option value="audio/wav">WAV</option>
+                                </select>
+                            </div>
+                            <div class="config-item">
+                                <label for="recordingBitrate">Bitrate (kbps):</label>
+                                <input type="number" id="recordingBitrate" class="form-control" value="128" min="64" max="320" step="32" />
+                            </div>
+                            <div class="config-item">
+                                <label for="recordingMaxDuration">Max Duration (sec):</label>
+                                <input type="number" id="recordingMaxDuration" class="form-control" value="300" min="10" max="3600" step="10" />
+                            </div>
+                        </div>
+                        <div class="config-section">
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="recordingEchoCancellation" checked />
+                                <label for="recordingEchoCancellation">Echo Cancellation</label>
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="recordingNoiseSuppression" checked />
+                                <label for="recordingNoiseSuppression">Noise Suppression</label>
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="recordingAutoGainControl" checked />
+                                <label for="recordingAutoGainControl">Auto Gain Control</label>
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="recordingRealtimeProcessing" checked />
+                                <label for="recordingRealtimeProcessing">Real-time Processing</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">🎵 Recordings</h3>
+                        <div id="recordingsList" class="recordings-list">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🎤</div>
+                                <p>No recordings yet. Start recording to see them here.</p>
+                            </div>
+                        </div>
+                        <button id="clearRecordingsBtn" class="btn btn-warning">Clear All Recordings</button>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📋 Recording Event Log</h3>
+                        <div id="recordingEventLog" class="log"></div>
+                        <button id="clearRecordingLogBtn" class="btn btn-secondary">Clear Log</button>
+                    </div>
+                </div>
+
+                <!-- Processing Tab -->
+                <div id="processing" class="tab-pane">
+                    <div class="section">
+                        <h2 class="section-title">⚙️ Audio Processing</h2>
+                        <p class="section-description">Process audio with silence trimming, format conversion, and advanced audio manipulation.</p>
+
+                        <div class="processing-controls">
+                            <div class="processing-section">
+                                <div class="processing-title">🔇 Silence Trimming</div>
+                                <div class="config-item">
+                                    <label for="silenceThreshold">Silence Threshold: <span id="silenceThresholdValue" class="range-value">-50</span> dB</label>
+                                    <input type="range" id="silenceThreshold" class="range-input" min="-80" max="-10" value="-50" />
+                                </div>
+                                <div class="config-item">
+                                    <label for="minSilenceDuration">Min Silence: <span id="minSilenceDurationValue" class="range-value">100</span> ms</label>
+                                    <input type="range" id="minSilenceDuration" class="range-input" min="50" max="500" value="100" />
+                                </div>
+                                <button id="trimSilenceBtn" class="btn btn-primary">Trim Silence</button>
+                            </div>
+
+                            <div class="processing-section">
+                                <div class="processing-title">🔄 Format Conversion</div>
+                                <div class="config-item">
+                                    <label for="outputFormat">Output Format:</label>
+                                    <select id="outputFormat" class="form-control">
+                                        <option value="wav">WAV</option>
+                                        <option value="mp3">MP3</option>
+                                        <option value="webm">WebM</option>
+                                    </select>
+                                </div>
+                                <button id="convertFormatBtn" class="btn btn-primary">Convert Format</button>
+                            </div>
+
+                            <div class="processing-section">
+                                <div class="processing-title">🏷️ Metadata Processing</div>
+                                <div class="checkbox-item">
+                                    <input type="checkbox" id="removeId3Tags" checked />
+                                    <label for="removeId3Tags">Remove ID3 Tags</label>
+                                </div>
+                                <button id="processMetadataBtn" class="btn btn-primary">Process Metadata</button>
+                            </div>
+
+                            <div class="processing-section">
+                                <div class="processing-title">⏱️ Duration Analysis</div>
+                                <button id="estimateDurationBtn" class="btn btn-primary">Estimate Duration</button>
+                                <div id="durationResult" class="status" style="display: none"></div>
+                            </div>
+                        </div>
+
+                        <div class="controls">
+                            <input type="file" id="audioFileInput" class="form-control" accept="audio/*" />
+                            <button id="loadAudioFileBtn" class="btn btn-secondary">Load Audio File</button>
+                            <button id="downloadProcessedBtn" class="btn btn-success" disabled>💾 Download Processed</button>
+                        </div>
+
+                        <div id="processingStatus" class="status">Select an audio file to start processing...</div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📊 Processing Results</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-value" id="originalSize">0 MB</span>
+                                <span class="stat-label">Original Size</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="processedSize">0 MB</span>
+                                <span class="stat-label">Processed Size</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="compressionRatio">0%</span>
+                                <span class="stat-label">Size Reduction</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="processingTime">0ms</span>
+                                <span class="stat-label">Processing Time</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📋 Processing Event Log</h3>
+                        <div id="processingEventLog" class="log"></div>
+                        <button id="clearProcessingLogBtn" class="btn btn-secondary">Clear Log</button>
+                    </div>
+                </div>
+
+                <!-- Caching Tab -->
+                <div id="caching" class="tab-pane">
+                    <div class="section">
+                        <h2 class="section-title">💾 Audio Caching System</h2>
+                        <p class="section-description">Manage persistent audio cache with IndexedDB storage and memory optimization.</p>
+
+                        <div class="controls">
+                            <button id="refreshCacheStatsBtn" class="btn btn-primary">🔄 Refresh Stats</button>
+                            <button id="clearAllCacheBtn" class="btn btn-warning">🗑️ Clear All Cache</button>
+                            <button id="exportCacheBtn" class="btn btn-secondary">📤 Export Cache Data</button>
+                            <button id="optimizeCacheBtn" class="btn btn-success">⚡ Optimize Cache</button>
+                        </div>
+
+                        <div id="cachingStatus" class="status">Cache system ready...</div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📊 Cache Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-value" id="totalCacheEntries">0</span>
+                                <span class="stat-label">Total Entries</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="totalCacheSize">0 MB</span>
+                                <span class="stat-label">Total Size</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="cacheHitRatio">0%</span>
+                                <span class="stat-label">Hit Ratio</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="memoryUsage">0 MB</span>
+                                <span class="stat-label">Memory Usage</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="storageQuota">0 MB</span>
+                                <span class="stat-label">Storage Quota</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="lastCleanup">Never</span>
+                                <span class="stat-label">Last Cleanup</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">🗂️ Cache Entries</h3>
+                        <div id="cacheEntriesList" class="recordings-list">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">💾</div>
+                                <p>No cache entries found. Stream some audio to populate the cache.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">⚙️ Cache Configuration</h3>
+                        <div class="config-section">
+                            <div class="config-item">
+                                <label for="maxCacheSize">Max Cache Size: <span id="maxCacheSizeValue" class="range-value">100</span> MB</label>
+                                <input type="range" id="maxCacheSize" class="range-input" min="10" max="500" value="100" />
+                            </div>
+                            <div class="config-item">
+                                <label for="maxCacheAge">Max Age: <span id="maxCacheAgeValue" class="range-value">7</span> days</label>
+                                <input type="range" id="maxCacheAge" class="range-input" min="1" max="30" value="7" />
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="enableMemoryCache" checked />
+                                <label for="enableMemoryCache">Enable Memory Cache</label>
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="enableAutoCleanup" checked />
+                                <label for="enableAutoCleanup">Enable Auto Cleanup</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📋 Cache Event Log</h3>
+                        <div id="cachingEventLog" class="log"></div>
+                        <button id="clearCachingLogBtn" class="btn btn-secondary">Clear Log</button>
+                    </div>
+                </div>
+
+                <!-- Real-time Tab -->
+                <div id="realtime" class="tab-pane">
+                    <div class="section">
+                        <h2 class="section-title">📊 Real-time Audio Processing</h2>
+                        <p class="section-description">Live audio analysis with effects, visualization, and real-time processing capabilities.</p>
+
+                        <div class="controls">
+                            <button id="startRealtimeBtn" class="btn btn-primary">🎤 Start Real-time Processing</button>
+                            <button id="stopRealtimeBtn" class="btn btn-danger" disabled>⏹️ Stop Processing</button>
+                            <button id="toggleEffectsBtn" class="btn btn-secondary" disabled>✨ Toggle Effects</button>
+                            <button id="toggleMuteBtn" class="btn btn-warning" disabled>🔇 Mute Output</button>
+                        </div>
+
+                        <canvas id="realtimeVisualizer" class="visualizer" width="800" height="120"></canvas>
+
+                        <div class="controls">
+                            <div class="level-meter">
+                                <div class="level-bar" id="realtimeLevelBar"></div>
+                            </div>
+                            <div id="silenceIndicator" class="status">🔇 Silence</div>
+                        </div>
+
+                        <div id="realtimeStatus" class="status">Real-time processing ready...</div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">🎛️ Audio Effects</h3>
+                        <div class="processing-controls">
+                            <div class="processing-section">
+                                <div class="processing-title">🔊 Gain Control</div>
+                                <div class="config-item">
+                                    <label for="gainLevel">Gain: <span id="gainLevelValue" class="range-value">1.0</span>x</label>
+                                    <input type="range" id="gainLevel" class="range-input" min="0" max="3" step="0.1" value="1" />
+                                </div>
+                            </div>
+
+                            <div class="processing-section">
+                                <div class="processing-title">🎚️ Filter</div>
+                                <div class="config-item">
+                                    <label for="filterType">Type:</label>
+                                    <select id="filterType" class="form-control">
+                                        <option value="none">None</option>
+                                        <option value="lowpass">Low Pass</option>
+                                        <option value="highpass">High Pass</option>
+                                        <option value="bandpass">Band Pass</option>
+                                    </select>
+                                </div>
+                                <div class="config-item">
+                                    <label for="filterFrequency">Frequency: <span id="filterFrequencyValue" class="range-value">1000</span> Hz</label>
+                                    <input type="range" id="filterFrequency" class="range-input" min="100" max="5000" value="1000" />
+                                </div>
+                            </div>
+
+                            <div class="processing-section">
+                                <div class="processing-title">🌊 Reverb</div>
+                                <div class="config-item">
+                                    <label for="reverbLevel">Level: <span id="reverbLevelValue" class="range-value">0</span>%</label>
+                                    <input type="range" id="reverbLevel" class="range-input" min="0" max="100" value="0" />
+                                </div>
+                            </div>
+
+                            <div class="processing-section">
+                                <div class="processing-title">🔄 Echo</div>
+                                <div class="config-item">
+                                    <label for="echoDelay">Delay: <span id="echoDelayValue" class="range-value">0</span> ms</label>
+                                    <input type="range" id="echoDelay" class="range-input" min="0" max="500" value="0" />
+                                </div>
+                                <div class="config-item">
+                                    <label for="echoFeedback">Feedback: <span id="echoFeedbackValue" class="range-value">0</span>%</label>
+                                    <input type="range" id="echoFeedback" class="range-input" min="0" max="90" value="0" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">⚙️ Processing Configuration</h3>
+                        <div class="config-section">
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="realtimeSilenceDetection" checked />
+                                <label for="realtimeSilenceDetection">Silence Detection</label>
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="realtimeLevelMonitoring" checked />
+                                <label for="realtimeLevelMonitoring">Level Monitoring</label>
+                            </div>
+                            <div class="config-item">
+                                <label for="realtimeSilenceThreshold"
+                                    >Silence Threshold: <span id="realtimeSilenceThresholdValue" class="range-value">-50</span> dB</label
+                                >
+                                <input type="range" id="realtimeSilenceThreshold" class="range-input" min="-80" max="-10" value="-50" />
+                            </div>
+                            <div class="config-item">
+                                <label for="levelUpdateInterval">Update Interval: <span id="levelUpdateIntervalValue" class="range-value">100</span> ms</label>
+                                <input type="range" id="levelUpdateInterval" class="range-input" min="50" max="500" value="100" />
+                            </div>
+                            <div class="config-item">
+                                <label for="outputVolume">Output Volume: <span id="outputVolumeValue" class="range-value">0.3</span></label>
+                                <input type="range" id="outputVolume" class="range-input" min="0" max="1" step="0.05" value="0.3" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📊 Real-time Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-value" id="currentLevel">0 dB</span>
+                                <span class="stat-label">Current Level</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="peakLevel">0 dB</span>
+                                <span class="stat-label">Peak Level</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="averageLevel">0 dB</span>
+                                <span class="stat-label">Average Level</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="silencePercentage">0%</span>
+                                <span class="stat-label">Silence %</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📋 Real-time Event Log</h3>
+                        <div id="realtimeEventLog" class="log"></div>
+                        <button id="clearRealtimeLogBtn" class="btn btn-secondary">Clear Log</button>
+                    </div>
+                </div>
+
+                <!-- Permissions Tab -->
+                <div id="permissions" class="tab-pane">
+                    <div class="section">
+                        <h2 class="section-title">🔒 Permission Management</h2>
+                        <p class="section-description">Manage microphone permissions with cross-browser compatibility and user-friendly error handling.</p>
+
+                        <div class="controls">
+                            <button id="checkPermissionBtn" class="btn btn-primary">🔍 Check Permission</button>
+                            <button id="requestPermissionBtn" class="btn btn-success">🔓 Request Permission</button>
+                            <button id="enumerateDevicesBtn" class="btn btn-secondary">🎤 List Devices</button>
+                            <button id="testMicrophoneBtn" class="btn btn-info">🧪 Test Microphone</button>
+                        </div>
+
+                        <div id="permissionStatus" class="status">Permission status unknown...</div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📊 Permission Status</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-value" id="currentPermission">unknown</span>
+                                <span class="stat-label">Current Status</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="browserType">unknown</span>
+                                <span class="stat-label">Browser</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="deviceCount">0</span>
+                                <span class="stat-label">Audio Devices</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="streamActive">No</span>
+                                <span class="stat-label">Stream Active</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">🎤 Available Devices</h3>
+                        <div id="devicesList" class="recordings-list">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🎤</div>
+                                <p>Click "List Devices" to enumerate available audio input devices.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">⚙️ Constraint Configuration</h3>
+                        <div class="config-section">
+                            <div class="config-item">
+                                <label for="deviceId">Device ID:</label>
+                                <select id="deviceId" class="form-control">
+                                    <option value="">Default Device</option>
+                                </select>
+                            </div>
+                            <div class="config-item">
+                                <label for="sampleRate">Sample Rate:</label>
+                                <select id="sampleRate" class="form-control">
+                                    <option value="">Auto</option>
+                                    <option value="44100">44.1 kHz</option>
+                                    <option value="48000">48 kHz</option>
+                                </select>
+                            </div>
+                            <div class="config-item">
+                                <label for="channelCount">Channels:</label>
+                                <select id="channelCount" class="form-control">
+                                    <option value="">Auto</option>
+                                    <option value="1">Mono</option>
+                                    <option value="2">Stereo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="config-section">
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="permissionEchoCancellation" checked />
+                                <label for="permissionEchoCancellation">Echo Cancellation</label>
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="permissionNoiseSuppression" checked />
+                                <label for="permissionNoiseSuppression">Noise Suppression</label>
+                            </div>
+                            <div class="config-item checkbox-item">
+                                <input type="checkbox" id="permissionAutoGainControl" checked />
+                                <label for="permissionAutoGainControl">Auto Gain Control</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">🆘 Troubleshooting Guide</h3>
+                        <div id="troubleshootingGuide" class="log">
+                            <div class="log-entry">
+                                <span class="log-message">🔍 <strong>Permission Denied:</strong> Check browser settings and ensure HTTPS connection</span>
+                            </div>
+                            <div class="log-entry">
+                                <span class="log-message">🔧 <strong>Device Not Found:</strong> Verify microphone is connected and not used by other apps</span>
+                            </div>
+                            <div class="log-entry">
+                                <span class="log-message">🌐 <strong>Browser Compatibility:</strong> Ensure your browser supports getUserMedia API</span>
+                            </div>
+                            <div class="log-entry">
+                                <span class="log-message">🔒 <strong>HTTPS Required:</strong> Microphone access requires secure context (HTTPS)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📋 Permission Event Log</h3>
+                        <div id="permissionEventLog" class="log"></div>
+                        <button id="clearPermissionLogBtn" class="btn btn-secondary">Clear Log</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <script type="module">
+            // Import the library
+            import {
+                createAudioStreamer,
+                createAudioRecorder,
+                AudioProcessor,
+                AudioCache,
+                PermissionManager,
+                RealtimeAudioProcessor,
+                MediaSourceHelper,
+            } from '../build/index.js';
+
+            // Global state
+            let activeTab = 'overview';
+            let streamer = null;
+            let recorder = null;
+            let realtimeProcessor = null;
+            let audioProcessor = null;
+            let audioCache = null;
+            let permissionManager = null;
+            let currentAudioId = null;
+            let currentRecording = null;
+            let recordings = [];
+            let processedAudioBlob = null;
+
+            // Tab management
+            function initializeTabs() {
+                const tabs = document.querySelectorAll('.tab');
+                const tabPanes = document.querySelectorAll('.tab-pane');
+
+                tabs.forEach((tab) => {
+                    tab.addEventListener('click', () => {
+                        const tabId = tab.dataset.tab;
+
+                        // Update active tab
+                        tabs.forEach((t) => t.classList.remove('active'));
+                        tab.classList.add('active');
+
+                        // Update active pane
+                        tabPanes.forEach((pane) => pane.classList.remove('active'));
+                        document.getElementById(tabId).classList.add('active');
+
+                        activeTab = tabId;
+
+                        // Initialize tab-specific functionality
+                        initializeTab(tabId);
+                    });
+                });
+            }
+
+            // Initialize tab-specific functionality
+            function initializeTab(tabId) {
+                switch (tabId) {
+                    case 'streaming':
+                        initializeStreaming();
+                        break;
+                    case 'recording':
+                        initializeRecording();
+                        break;
+                    case 'processing':
+                        initializeProcessing();
+                        break;
+                    case 'caching':
+                        initializeCaching();
+                        break;
+                    case 'realtime':
+                        initializeRealtime();
+                        break;
+                    case 'permissions':
+                        initializePermissions();
+                        break;
+                }
+            }
+
+            // Utility functions
+            function logEvent(logElementId, message, data = null) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logElement = document.getElementById(logElementId);
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+
+                let html = `<span class="log-timestamp">[${timestamp}]</span> <span class="log-message">${message}</span>`;
+                if (data) {
+                    html += ` <span class="log-data">${JSON.stringify(data)}</span>`;
+                }
+
+                logEntry.innerHTML = html;
+                logElement.appendChild(logEntry);
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+
+            function updateStatus(statusElementId, message, type = 'info') {
+                const statusElement = document.getElementById(statusElementId);
+                statusElement.textContent = message;
+                statusElement.className = `status ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+
+            function formatDuration(ms) {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }
+
+            // Initialize range inputs with value display
+            function initializeRangeInputs() {
+                const rangeInputs = document.querySelectorAll('input[type="range"]');
+                rangeInputs.forEach((input) => {
+                    const valueElement = document.getElementById(input.id + 'Value');
+                    if (valueElement) {
+                        input.addEventListener('input', () => {
+                            valueElement.textContent = input.value;
+                        });
+                    }
+                });
+            }
+
+            // Initialize on page load
+            document.addEventListener('DOMContentLoaded', () => {
+                initializeTabs();
+                initializeRangeInputs();
+
+                // Initialize default tab
+                initializeTab('overview');
+
+                console.log('🎵 audio.libx.js Comprehensive Demo Initialized');
+            });
+
+            // Streaming functionality
+            function initializeStreaming() {
+                if (streamer) return; // Already initialized
+
+                const audioPlayer = document.getElementById('audioPlayer');
+                const audioUrl = document.getElementById('audioUrl');
+                const streamBtn = document.getElementById('streamBtn');
+                const playFromCacheBtn = document.getElementById('playFromCacheBtn');
+                const clearCacheBtn = document.getElementById('clearCacheBtn');
+                const bufferProgress = document.getElementById('bufferProgress');
+                const enableCaching = document.getElementById('enableCaching');
+                const enableTrimming = document.getElementById('enableTrimming');
+                const bufferThreshold = document.getElementById('bufferThreshold');
+
+                function createStreamer() {
+                    if (streamer) {
+                        streamer.dispose();
+                    }
+
+                    const options = {
+                        bufferThreshold: parseInt(bufferThreshold.value),
+                        enableCaching: enableCaching.checked,
+                        enableTrimming: enableTrimming.checked,
+                        silenceThresholdDb: -50,
+                        minSilenceMs: 100,
+                    };
+
+                    streamer = createAudioStreamer(audioPlayer, options);
+
+                    // Set up event listeners
+                    streamer.on('stateChange', (event) => {
+                        document.getElementById('streamState').textContent = event.data.state;
+
+                        if (event.data.state === 'ended' || event.data.state === 'idle') {
+                            streamBtn.disabled = false;
+                        }
+
+                        logEvent('streamingEventLog', `State changed to: ${event.data.state}`, event.data);
+                    });
+
+                    streamer.on('bufferProgress', (event) => {
+                        const progress = Math.round(event.data * 100);
+                        bufferProgress.style.width = `${progress}%`;
+                        logEvent('streamingEventLog', `Buffer progress: ${progress}%`);
+                    });
+
+                    streamer.on('canPlay', (event) => {
+                        logEvent('streamingEventLog', 'Audio can play', event.audioId);
+                    });
+
+                    streamer.on('loadStart', (event) => {
+                        streamBtn.disabled = true;
+                        updateStatus('streamingStatus', 'Loading audio...', 'info');
+                        logEvent('streamingEventLog', 'Load started', event.audioId);
+                    });
+
+                    streamer.on('loadEnd', (event) => {
+                        streamBtn.disabled = false;
+                        if (currentAudioId) {
+                            playFromCacheBtn.disabled = false;
+                        }
+                        updateStatus('streamingStatus', 'Audio loaded successfully', 'success');
+                        logEvent('streamingEventLog', 'Load ended', event.audioId);
+                        updateStreamingStats();
+                    });
+
+                    streamer.on('playStart', (event) => {
+                        updateStatus('streamingStatus', 'Playing audio...', 'info');
+                        logEvent('streamingEventLog', 'Playback started', event.audioId);
+                    });
+
+                    streamer.on('playEnd', (event) => {
+                        streamBtn.disabled = false;
+                        updateStatus('streamingStatus', 'Playback finished', 'success');
+                        logEvent('streamingEventLog', 'Playback ended', event.audioId);
+                    });
+
+                    streamer.on('error', (event) => {
+                        streamBtn.disabled = false;
+                        updateStatus('streamingStatus', `Error: ${event.data?.message || 'Unknown error'}`, 'error');
+                        logEvent('streamingEventLog', 'Error occurred:', event.data);
+                    });
+
+                    streamer.on('cacheHit', (event) => {
+                        logEvent('streamingEventLog', 'Cache hit', event.audioId);
+                        updateStreamingStats();
+                    });
+
+                    streamer.on('cacheMiss', (event) => {
+                        logEvent('streamingEventLog', 'Cache miss', event.audioId);
+                    });
+
+                    logEvent('streamingEventLog', 'Streamer initialized with options:', options);
+                }
+
+                async function updateStreamingStats() {
+                    if (!streamer) return;
+
+                    try {
+                        const capabilities = streamer.getCapabilities();
+                        if (capabilities.caching) {
+                            const stats = await streamer.getCacheStats();
+                            document.getElementById('cacheEntries').textContent = stats.entryCount;
+                            document.getElementById('cacheSize').textContent = formatFileSize(stats.totalSize);
+                            document.getElementById('hitRatio').textContent = Math.round(stats.hitRatio * 100) + '%';
+                        } else {
+                            document.getElementById('cacheEntries').textContent = 'N/A';
+                            document.getElementById('cacheSize').textContent = 'N/A';
+                            document.getElementById('hitRatio').textContent = 'N/A';
+                        }
+                    } catch (error) {
+                        logEvent('streamingEventLog', 'Failed to update stats:', error.message);
+                    }
+                }
+
+                // Event listeners
+                streamBtn.addEventListener('click', async () => {
+                    const url = audioUrl.value.trim();
+                    if (!url) {
+                        updateStatus('streamingStatus', 'Please enter a valid audio URL', 'error');
+                        return;
+                    }
+
+                    try {
+                        const result = await streamer.streamFromUrl(url);
+                        currentAudioId = result.audioId;
+
+                        // Wait for loading to complete
+                        await result.onLoaded;
+                        logEvent('streamingEventLog', 'Audio loaded and ready to play');
+
+                        // Optionally wait for playback to end
+                        result.onEnded.then(() => {
+                            logEvent('streamingEventLog', 'Playback completed');
+                        });
+                    } catch (error) {
+                        updateStatus('streamingStatus', `Error: ${error.message}`, 'error');
+                        logEvent('streamingEventLog', 'Streaming error:', error);
+                    }
+                });
+
+                playFromCacheBtn.addEventListener('click', async () => {
+                    if (!currentAudioId) {
+                        updateStatus('streamingStatus', 'No audio in cache to play', 'error');
+                        return;
+                    }
+
+                    try {
+                        const result = await streamer.playFromCache(currentAudioId);
+                        await result.onLoaded;
+                        logEvent('streamingEventLog', 'Playing from cache');
+                    } catch (error) {
+                        updateStatus('streamingStatus', `Error: ${error.message}`, 'error');
+                        logEvent('streamingEventLog', 'Cache playback error:', error);
+                    }
+                });
+
+                clearCacheBtn.addEventListener('click', async () => {
+                    try {
+                        await streamer.clearCache();
+                        currentAudioId = null;
+                        playFromCacheBtn.disabled = true;
+                        updateStatus('streamingStatus', 'Cache cleared', 'success');
+                        logEvent('streamingEventLog', 'Cache cleared');
+                        updateStreamingStats();
+                    } catch (error) {
+                        updateStatus('streamingStatus', `Error: ${error.message}`, 'error');
+                        logEvent('streamingEventLog', 'Cache clear error:', error);
+                    }
+                });
+
+                document.getElementById('clearStreamingLogBtn').addEventListener('click', () => {
+                    document.getElementById('streamingEventLog').innerHTML = '';
+                });
+
+                // Config change handlers
+                [enableCaching, enableTrimming, bufferThreshold].forEach((element) => {
+                    element.addEventListener('change', () => {
+                        logEvent('streamingEventLog', 'Configuration changed, reinitializing streamer...');
+                        createStreamer();
+                    });
+                });
+
+                // Initialize streamer
+                createStreamer();
+                updateStreamingStats();
+                logEvent('streamingEventLog', 'Streaming demo initialized');
+            }
+
+            // Recording functionality
+            function initializeRecording() {
+                if (recorder) return; // Already initialized
+
+                const startRecordingBtn = document.getElementById('startRecordingBtn');
+                const stopRecordingBtn = document.getElementById('stopRecordingBtn');
+                const pauseRecordingBtn = document.getElementById('pauseRecordingBtn');
+                const resumeRecordingBtn = document.getElementById('resumeRecordingBtn');
+                const testPermissionBtn = document.getElementById('testPermissionBtn');
+                const recordingDuration = document.getElementById('recordingDuration');
+                const recordingLevelBar = document.getElementById('recordingLevelBar');
+                const recordingVisualizer = document.getElementById('recordingVisualizer');
+                const recordingsList = document.getElementById('recordingsList');
+
+                // Config elements
+                const recordingMimeType = document.getElementById('recordingMimeType');
+                const recordingBitrate = document.getElementById('recordingBitrate');
+                const recordingMaxDuration = document.getElementById('recordingMaxDuration');
+                const recordingEchoCancellation = document.getElementById('recordingEchoCancellation');
+                const recordingNoiseSuppression = document.getElementById('recordingNoiseSuppression');
+                const recordingAutoGainControl = document.getElementById('recordingAutoGainControl');
+                const recordingRealtimeProcessing = document.getElementById('recordingRealtimeProcessing');
+
+                let visualizerContext = null;
+                let recordingRealtimeProcessor = null;
+
+                // Initialize visualizer
+                if (recordingVisualizer) {
+                    visualizerContext = recordingVisualizer.getContext('2d');
+                    visualizerContext.fillStyle = '#000';
+                    visualizerContext.fillRect(0, 0, recordingVisualizer.width, recordingVisualizer.height);
+                }
+
+                function createRecorder() {
+                    if (recorder) {
+                        recorder.dispose();
+                    }
+
+                    const options = {
+                        mimeType: recordingMimeType.value || undefined,
+                        audioBitsPerSecond: parseInt(recordingBitrate.value) * 1000,
+                        maxDuration: parseInt(recordingMaxDuration.value) * 1000,
+                        enableEchoCancellation: recordingEchoCancellation.checked,
+                        enableNoiseSuppression: recordingNoiseSuppression.checked,
+                        enableAutoGainControl: recordingAutoGainControl.checked,
+                        enableRealtimeProcessing: recordingRealtimeProcessing.checked,
+                        silenceThresholdDb: -50,
+                    };
+
+                    recorder = createAudioRecorder(options);
+                    setupRecordingEvents();
+                    logEvent('recordingEventLog', 'Recorder initialized with options:', options);
+                }
+
+                function setupRecordingEvents() {
+                    recorder.on('permissionRequested', (event) => {
+                        updateStatus('recordingStatus', 'Requesting microphone permission...', 'info');
+                        logEvent('recordingEventLog', 'Permission requested', event.recordingId);
+                    });
+
+                    recorder.on('permissionGranted', (event) => {
+                        updateStatus('recordingStatus', 'Permission granted', 'success');
+                        logEvent('recordingEventLog', 'Permission granted', event.recordingId);
+                    });
+
+                    recorder.on('recordingStarted', (event) => {
+                        updateStatus('recordingStatus', 'Recording...', 'info');
+                        startRecordingBtn.disabled = true;
+                        startRecordingBtn.classList.add('recording');
+                        stopRecordingBtn.disabled = false;
+                        pauseRecordingBtn.disabled = false;
+                        resumeRecordingBtn.disabled = true;
+                        logEvent('recordingEventLog', 'Recording started', event.recordingId);
+                    });
+
+                    recorder.on('recordingCompleted', (event) => {
+                        updateStatus('recordingStatus', 'Recording completed successfully', 'success');
+                        addRecording(event.data);
+                        resetRecordingButtons();
+                        logEvent('recordingEventLog', 'Recording completed:', event.data);
+                    });
+
+                    recorder.on('audioLevel', (event) => {
+                        const level = event.data?.level || event.data || 0;
+                        updateRecordingLevelMeter(level);
+                    });
+
+                    recorder.on('durationUpdate', (event) => {
+                        const ms = event.data || 0;
+                        updateRecordingDuration(ms);
+                    });
+
+                    recorder.on('recordingError', (event) => {
+                        updateStatus('recordingStatus', `Error: ${event.data?.message || 'Unknown error'}`, 'error');
+                        resetRecordingButtons();
+                        logEvent('recordingEventLog', 'Recording error:', event.data);
+                    });
+                }
+
+                function updateRecordingDuration(ms) {
+                    recordingDuration.textContent = formatDuration(ms);
+                }
+
+                function updateRecordingLevelMeter(level) {
+                    const percentage = Math.min(level * 100, 100);
+                    recordingLevelBar.style.width = `${percentage}%`;
+                }
+
+                function resetRecordingButtons() {
+                    startRecordingBtn.disabled = false;
+                    startRecordingBtn.classList.remove('recording');
+                    stopRecordingBtn.disabled = true;
+                    pauseRecordingBtn.disabled = true;
+                    resumeRecordingBtn.disabled = true;
+                    recordingLevelBar.style.width = '0%';
+                    updateRecordingDuration(0);
+                }
+
+                function addRecording(recordingData) {
+                    recordings.push(recordingData);
+                    updateRecordingsList();
+                }
+
+                function updateRecordingsList() {
+                    if (recordings.length === 0) {
+                        recordingsList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🎤</div>
+                            <p>No recordings yet. Start recording to see them here.</p>
+                        </div>
+                    `;
+                        return;
+                    }
+
+                    recordingsList.innerHTML = recordings
+                        .map(
+                            (recording, index) => `
+                        <div class="recording-item">
+                            <div class="recording-info">
+                                <div class="recording-title">Recording ${index + 1}</div>
+                                <div class="recording-meta">
+                                    Duration: ${formatDuration(recording.duration)} |
+                                    Size: ${formatFileSize(recording.blob.size)} |
+                                    Type: ${recording.mimeType}
+                                </div>
+                            </div>
+                            <div class="recording-actions">
+                                <button class="btn btn-success" onclick="playRecording(${index})">▶️ Play</button>
+                                <button class="btn btn-secondary" onclick="downloadRecording(${index})">💾 Download</button>
+                                <button class="btn btn-danger" onclick="deleteRecording(${index})">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    `
+                        )
+                        .join('');
+                }
+
+                // Global functions for recording actions
+                window.playRecording = function (index) {
+                    const recording = recordings[index];
+                    if (recording) {
+                        const audio = new Audio(URL.createObjectURL(recording.blob));
+                        audio.play();
+                        logEvent('recordingEventLog', `Playing recording ${index + 1}`);
+                    }
+                };
+
+                window.downloadRecording = function (index) {
+                    const recording = recordings[index];
+                    if (recording) {
+                        const url = URL.createObjectURL(recording.blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `recording_${index + 1}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${recording.mimeType.split('/')[1].split(';')[0]}`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        logEvent('recordingEventLog', `Downloaded recording ${index + 1}`);
+                    }
+                };
+
+                window.deleteRecording = function (index) {
+                    if (confirm(`Delete recording ${index + 1}?`)) {
+                        recordings.splice(index, 1);
+                        updateRecordingsList();
+                        logEvent('recordingEventLog', `Deleted recording ${index + 1}`);
+                    }
+                };
+
+                // Event listeners
+                startRecordingBtn.addEventListener('click', async () => {
+                    try {
+                        currentRecording = await recorder.startRecording();
+                        await currentRecording.onStarted;
+                        logEvent('recordingEventLog', 'Recording session started');
+                    } catch (error) {
+                        updateStatus('recordingStatus', `Error: ${error.message}`, 'error');
+                        logEvent('recordingEventLog', 'Recording start error:', error);
+                    }
+                });
+
+                stopRecordingBtn.addEventListener('click', async () => {
+                    if (currentRecording) {
+                        try {
+                            const recordingData = await currentRecording.stop();
+                            logEvent('recordingEventLog', 'Recording stopped manually');
+                        } catch (error) {
+                            updateStatus('recordingStatus', `Error: ${error.message}`, 'error');
+                            logEvent('recordingEventLog', 'Recording stop error:', error);
+                        }
+                    }
+                });
+
+                document.getElementById('clearRecordingsBtn').addEventListener('click', () => {
+                    if (confirm('Clear all recordings?')) {
+                        recordings = [];
+                        updateRecordingsList();
+                        logEvent('recordingEventLog', 'All recordings cleared');
+                    }
+                });
+
+                document.getElementById('clearRecordingLogBtn').addEventListener('click', () => {
+                    document.getElementById('recordingEventLog').innerHTML = '';
+                });
+
+                // Initialize recorder
+                createRecorder();
+                updateRecordingsList();
+                logEvent('recordingEventLog', 'Recording demo initialized');
+            }
+
+            // Processing functionality
+            function initializeProcessing() {
+                if (!audioProcessor) {
+                    audioProcessor = new AudioProcessor();
+                }
+
+                const audioFileInput = document.getElementById('audioFileInput');
+                const loadAudioFileBtn = document.getElementById('loadAudioFileBtn');
+                const trimSilenceBtn = document.getElementById('trimSilenceBtn');
+                const convertFormatBtn = document.getElementById('convertFormatBtn');
+                const downloadProcessedBtn = document.getElementById('downloadProcessedBtn');
+
+                let originalAudioChunks = null;
+                let originalMimeType = null;
+
+                // Load audio file
+                loadAudioFileBtn.addEventListener('click', () => {
+                    audioFileInput.click();
+                });
+
+                audioFileInput.addEventListener('change', async (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    try {
+                        updateStatus('processingStatus', 'Loading audio file...', 'info');
+
+                        const arrayBuffer = await file.arrayBuffer();
+                        originalAudioChunks = [new Uint8Array(arrayBuffer)];
+                        originalMimeType = file.type;
+
+                        document.getElementById('originalSize').textContent = formatFileSize(file.size);
+
+                        updateStatus('processingStatus', `Audio file loaded: ${file.name}`, 'success');
+                        logEvent('processingEventLog', 'Audio file loaded:', { name: file.name, size: file.size, type: file.type });
+                    } catch (error) {
+                        updateStatus('processingStatus', `Error loading file: ${error.message}`, 'error');
+                        logEvent('processingEventLog', 'File load error:', error);
+                    }
+                });
+
+                // Trim silence
+                trimSilenceBtn.addEventListener('click', async () => {
+                    if (!originalAudioChunks) {
+                        updateStatus('processingStatus', 'Please load an audio file first', 'error');
+                        return;
+                    }
+
+                    try {
+                        updateStatus('processingStatus', 'Trimming silence...', 'info');
+                        const startTime = performance.now();
+
+                        const result = await audioProcessor.processAudio(originalAudioChunks, {
+                            trimSilence: true,
+                            silenceThresholdDb: parseInt(document.getElementById('silenceThreshold').value),
+                            outputFormat: 'original',
+                        });
+
+                        const endTime = performance.now();
+                        const processingTime = Math.round(endTime - startTime);
+
+                        processedAudioBlob = new Blob(result.chunks, { type: originalMimeType });
+
+                        document.getElementById('processedSize').textContent = formatFileSize(processedAudioBlob.size);
+                        document.getElementById('processingTime').textContent = processingTime + 'ms';
+
+                        downloadProcessedBtn.disabled = false;
+                        updateStatus('processingStatus', 'Silence trimming completed', 'success');
+                        logEvent('processingEventLog', 'Silence trimming completed');
+                    } catch (error) {
+                        updateStatus('processingStatus', `Trimming error: ${error.message}`, 'error');
+                        logEvent('processingEventLog', 'Trimming error:', error);
+                    }
+                });
+
+                // Convert format
+                convertFormatBtn.addEventListener('click', async () => {
+                    if (!originalAudioChunks) {
+                        updateStatus('processingStatus', 'Please load an audio file first', 'error');
+                        return;
+                    }
+
+                    try {
+                        updateStatus('processingStatus', 'Converting format...', 'info');
+                        const startTime = performance.now();
+
+                        const result = await audioProcessor.processAudio(originalAudioChunks, {
+                            outputFormat: document.getElementById('outputFormat').value,
+                        });
+
+                        const endTime = performance.now();
+                        const processingTime = Math.round(endTime - startTime);
+
+                        const newMimeType = 'audio/wav'; // Default to WAV
+                        processedAudioBlob = new Blob(result.chunks, { type: newMimeType });
+
+                        document.getElementById('processedSize').textContent = formatFileSize(processedAudioBlob.size);
+                        document.getElementById('processingTime').textContent = processingTime + 'ms';
+
+                        downloadProcessedBtn.disabled = false;
+                        updateStatus('processingStatus', 'Format conversion completed', 'success');
+                        logEvent('processingEventLog', 'Format conversion completed');
+                    } catch (error) {
+                        updateStatus('processingStatus', `Conversion error: ${error.message}`, 'error');
+                        logEvent('processingEventLog', 'Conversion error:', error);
+                    }
+                });
+
+                // Download processed audio
+                downloadProcessedBtn.addEventListener('click', () => {
+                    if (!processedAudioBlob) {
+                        updateStatus('processingStatus', 'No processed audio to download', 'error');
+                        return;
+                    }
+
+                    const url = URL.createObjectURL(processedAudioBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `processed_audio_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    logEvent('processingEventLog', 'Processed audio downloaded');
+                });
+
+                document.getElementById('clearProcessingLogBtn').addEventListener('click', () => {
+                    document.getElementById('processingEventLog').innerHTML = '';
+                });
+
+                logEvent('processingEventLog', 'Processing demo initialized');
+            }
+
+            // Caching functionality
+            function initializeCaching() {
+                if (!audioCache) {
+                    audioCache = new AudioCache();
+                }
+
+                const refreshCacheStatsBtn = document.getElementById('refreshCacheStatsBtn');
+                const clearAllCacheBtn = document.getElementById('clearAllCacheBtn');
+                const exportCacheBtn = document.getElementById('exportCacheBtn');
+                const optimizeCacheBtn = document.getElementById('optimizeCacheBtn');
+                const cacheEntriesList = document.getElementById('cacheEntriesList');
+
+                async function updateCacheStats() {
+                    try {
+                        const stats = await audioCache.getStats();
+
+                        document.getElementById('totalCacheEntries').textContent = stats.entryCount;
+                        document.getElementById('totalCacheSize').textContent = formatFileSize(stats.totalSize);
+                        document.getElementById('cacheHitRatio').textContent = Math.round(stats.hitRatio * 100) + '%';
+                        document.getElementById('memoryUsage').textContent = formatFileSize(stats.memoryUsage || 0);
+
+                        // Get storage quota if available
+                        if ('storage' in navigator && 'estimate' in navigator.storage) {
+                            const estimate = await navigator.storage.estimate();
+                            document.getElementById('storageQuota').textContent = formatFileSize(estimate.quota || 0);
+                        }
+
+                        logEvent('cachingEventLog', 'Cache stats updated:', stats);
+                    } catch (error) {
+                        logEvent('cachingEventLog', 'Failed to update cache stats:', error);
+                    }
+                }
+
+                async function updateCacheEntriesList() {
+                    try {
+                        const entries = await audioCache.getAllEntries();
+
+                        if (entries.length === 0) {
+                            cacheEntriesList.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">💾</div>
+                                <p>No cache entries found. Stream some audio to populate the cache.</p>
+                            </div>
+                        `;
+                            return;
+                        }
+
+                        cacheEntriesList.innerHTML = entries
+                            .map(
+                                (entry, index) => `
+                            <div class="recording-item">
+                                <div class="recording-info">
+                                    <div class="recording-title">${entry.id}</div>
+                                    <div class="recording-meta">
+                                        Size: ${formatFileSize(entry.size)} |
+                                        Type: ${entry.mimeType} |
+                                        Created: ${new Date(entry.timestamp).toLocaleString()}
+                                    </div>
+                                </div>
+                                <div class="recording-actions">
+                                    <button class="btn btn-danger" onclick="deleteCacheEntry('${entry.id}')">🗑️ Delete</button>
+                                </div>
+                            </div>
+                        `
+                            )
+                            .join('');
+                    } catch (error) {
+                        logEvent('cachingEventLog', 'Failed to update cache entries:', error);
+                    }
+                }
+
+                // Global function for cache entry deletion
+                window.deleteCacheEntry = async function (entryId) {
+                    if (confirm(`Delete cache entry: ${entryId}?`)) {
+                        try {
+                            await audioCache.delete(entryId);
+                            updateCacheStats();
+                            updateCacheEntriesList();
+                            logEvent('cachingEventLog', `Deleted cache entry: ${entryId}`);
+                        } catch (error) {
+                            logEvent('cachingEventLog', 'Failed to delete cache entry:', error);
+                        }
+                    }
+                };
+
+                // Event listeners
+                refreshCacheStatsBtn.addEventListener('click', async () => {
+                    updateStatus('cachingStatus', 'Refreshing cache stats...', 'info');
+                    await updateCacheStats();
+                    await updateCacheEntriesList();
+                    updateStatus('cachingStatus', 'Cache stats refreshed', 'success');
+                });
+
+                clearAllCacheBtn.addEventListener('click', async () => {
+                    if (confirm('Clear all cache entries? This cannot be undone.')) {
+                        try {
+                            updateStatus('cachingStatus', 'Clearing cache...', 'info');
+                            await audioCache.clear();
+                            await updateCacheStats();
+                            await updateCacheEntriesList();
+                            updateStatus('cachingStatus', 'All cache cleared', 'success');
+                            logEvent('cachingEventLog', 'All cache entries cleared');
+                        } catch (error) {
+                            updateStatus('cachingStatus', `Error clearing cache: ${error.message}`, 'error');
+                            logEvent('cachingEventLog', 'Cache clear error:', error);
+                        }
+                    }
+                });
+
+                exportCacheBtn.addEventListener('click', async () => {
+                    try {
+                        updateStatus('cachingStatus', 'Exporting cache data...', 'info');
+                        const stats = await audioCache.getStats();
+                        const entries = await audioCache.getAllEntries();
+
+                        const exportData = {
+                            timestamp: new Date().toISOString(),
+                            stats: stats,
+                            entries: entries.map((entry) => ({
+                                id: entry.id,
+                                size: entry.size,
+                                mimeType: entry.mimeType,
+                                timestamp: entry.timestamp,
+                            })),
+                        };
+
+                        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `audio-cache-export-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        updateStatus('cachingStatus', 'Cache data exported', 'success');
+                        logEvent('cachingEventLog', 'Cache data exported');
+                    } catch (error) {
+                        updateStatus('cachingStatus', `Export error: ${error.message}`, 'error');
+                        logEvent('cachingEventLog', 'Export error:', error);
+                    }
+                });
+
+                optimizeCacheBtn.addEventListener('click', async () => {
+                    try {
+                        updateStatus('cachingStatus', 'Optimizing cache...', 'info');
+                        await audioCache.cleanup();
+                        await updateCacheStats();
+                        await updateCacheEntriesList();
+                        document.getElementById('lastCleanup').textContent = new Date().toLocaleString();
+                        updateStatus('cachingStatus', 'Cache optimized', 'success');
+                        logEvent('cachingEventLog', 'Cache optimization completed');
+                    } catch (error) {
+                        updateStatus('cachingStatus', `Optimization error: ${error.message}`, 'error');
+                        logEvent('cachingEventLog', 'Optimization error:', error);
+                    }
+                });
+
+                document.getElementById('clearCachingLogBtn').addEventListener('click', () => {
+                    document.getElementById('cachingEventLog').innerHTML = '';
+                });
+
+                // Initialize
+                updateCacheStats();
+                updateCacheEntriesList();
+                logEvent('cachingEventLog', 'Caching demo initialized');
+            }
+
+            // Real-time functionality
+            function initializeRealtime() {
+                const startRealtimeBtn = document.getElementById('startRealtimeBtn');
+                const stopRealtimeBtn = document.getElementById('stopRealtimeBtn');
+                const toggleEffectsBtn = document.getElementById('toggleEffectsBtn');
+                const toggleMuteBtn = document.getElementById('toggleMuteBtn');
+                const realtimeVisualizer = document.getElementById('realtimeVisualizer');
+                const realtimeLevelBar = document.getElementById('realtimeLevelBar');
+                const silenceIndicator = document.getElementById('silenceIndicator');
+
+                let realtimeVisualizerContext = null;
+                let effectsEnabled = false;
+                let outputMuted = false;
+
+                // Initialize visualizer
+                if (realtimeVisualizer) {
+                    realtimeVisualizerContext = realtimeVisualizer.getContext('2d');
+                    realtimeVisualizerContext.fillStyle = '#000';
+                    realtimeVisualizerContext.fillRect(0, 0, realtimeVisualizer.width, realtimeVisualizer.height);
+                }
+
+                function updateRealtimeVisualizer(audioData) {
+                    if (!realtimeVisualizerContext || !audioData?.audioData) return;
+
+                    const canvas = realtimeVisualizer;
+                    const ctx = realtimeVisualizerContext;
+                    const width = canvas.width;
+                    const height = canvas.height;
+
+                    // Clear canvas
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(0, 0, width, height);
+
+                    // Draw frequency bars
+                    ctx.fillStyle = '#00ff00';
+                    const data = audioData.audioData;
+                    const barWidth = Math.max(1, width / data.length);
+
+                    // Normalize and draw frequency data
+                    for (let i = 0; i < data.length; i++) {
+                        // Convert from dB to linear scale for visualization
+                        const normalizedValue = Math.max(0, (data[i] + 100) / 100); // Assuming dB values around -100 to 0
+                        const barHeight = Math.max(1, normalizedValue * height);
+                        ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
+                    }
+
+                    // Draw silence indicator
+                    if (audioData.isSilence) {
+                        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                        ctx.fillRect(0, 0, width, height);
+                    }
+
+                    // Draw level indicator
+                    const level = audioData.level || 0;
+                    ctx.fillStyle = '#ffff00';
+                    const levelWidth = level * width;
+                    ctx.fillRect(0, height - 5, levelWidth, 5);
+                }
+
+                function updateRealtimeLevelMeter(level) {
+                    const percentage = Math.min(level * 100, 100);
+                    realtimeLevelBar.style.width = `${percentage}%`;
+
+                    // Update level statistics
+                    document.getElementById('currentLevel').textContent = Math.round(20 * Math.log10(level || 0.001)) + ' dB';
+                }
+
+                // Event listeners
+                startRealtimeBtn.addEventListener('click', async () => {
+                    try {
+                        updateStatus('realtimeStatus', 'Starting real-time processing...', 'info');
+
+                        if (!permissionManager) {
+                            permissionManager = PermissionManager.getInstance();
+                        }
+
+                        const result = await permissionManager.requestPermission();
+                        if (!result.granted) {
+                            throw new Error('Microphone permission required');
+                        }
+
+                        const stream = permissionManager.getCurrentStream();
+
+                        if (!realtimeProcessor) {
+                            realtimeProcessor = new RealtimeAudioProcessor({
+                                enableSilenceDetection: document.getElementById('realtimeSilenceDetection').checked,
+                                silenceThresholdDb: parseInt(document.getElementById('realtimeSilenceThreshold').value),
+                                enableLevelMonitoring: document.getElementById('realtimeLevelMonitoring').checked,
+                                levelUpdateInterval: parseInt(document.getElementById('levelUpdateInterval').value),
+                                enableEffects: effectsEnabled,
+                                effects: [
+                                    { type: 'reverb', parameters: { duration: 2, decay: 2.5 }, enabled: true },
+                                    { type: 'filter', parameters: { type: 'lowpass', frequency: 5000, Q: 1 }, enabled: true },
+                                ],
+                            });
+                        }
+
+                        await realtimeProcessor.initialize(stream);
+                        realtimeProcessor.startProcessing();
+
+                        // Set up event handlers
+                        realtimeProcessor.onAudioData((data) => {
+                            // Only log occasionally to avoid spam
+                            if (Math.random() < 0.001) {
+                                // Log 0.1% of the time
+                                console.log('Audio data received:', data);
+                            }
+                            updateRealtimeVisualizer(data);
+                            updateRealtimeLevelMeter(data.level);
+
+                            if (data.isSilence) {
+                                silenceIndicator.textContent = '🔇 Silence';
+                                silenceIndicator.className = 'status';
+                            } else {
+                                silenceIndicator.textContent = '🔊 Audio';
+                                silenceIndicator.className = 'status success';
+                            }
+                        });
+
+                        startRealtimeBtn.disabled = true;
+                        stopRealtimeBtn.disabled = false;
+                        toggleEffectsBtn.disabled = false;
+                        toggleMuteBtn.disabled = false;
+
+                        updateStatus('realtimeStatus', 'Real-time processing started', 'success');
+                        logEvent('realtimeEventLog', 'Real-time processing started');
+                    } catch (error) {
+                        updateStatus('realtimeStatus', `Error: ${error.message}`, 'error');
+                        logEvent('realtimeEventLog', 'Start error:', error);
+                    }
+                });
+
+                stopRealtimeBtn.addEventListener('click', () => {
+                    try {
+                        if (realtimeProcessor) {
+                            realtimeProcessor.stopProcessing();
+                            realtimeProcessor.dispose();
+                            realtimeProcessor = null;
+                        }
+
+                        startRealtimeBtn.disabled = false;
+                        stopRealtimeBtn.disabled = true;
+                        toggleEffectsBtn.disabled = true;
+                        toggleMuteBtn.disabled = true;
+
+                        realtimeLevelBar.style.width = '0%';
+                        silenceIndicator.textContent = '🔇 Silence';
+                        silenceIndicator.className = 'status';
+
+                        // Reset mute button state
+                        outputMuted = false;
+                        toggleMuteBtn.textContent = '🔇 Mute Output';
+                        toggleMuteBtn.className = 'btn btn-warning';
+
+                        // Clear visualizer
+                        if (realtimeVisualizerContext) {
+                            realtimeVisualizerContext.fillStyle = '#000';
+                            realtimeVisualizerContext.fillRect(0, 0, realtimeVisualizer.width, realtimeVisualizer.height);
+                        }
+
+                        updateStatus('realtimeStatus', 'Real-time processing stopped', 'info');
+                        logEvent('realtimeEventLog', 'Real-time processing stopped');
+                    } catch (error) {
+                        updateStatus('realtimeStatus', `Error: ${error.message}`, 'error');
+                        logEvent('realtimeEventLog', 'Stop error:', error);
+                    }
+                });
+
+                toggleEffectsBtn.addEventListener('click', () => {
+                    effectsEnabled = !effectsEnabled;
+                    toggleEffectsBtn.textContent = effectsEnabled ? '✨ Disable Effects' : '✨ Enable Effects';
+
+                    if (realtimeProcessor) {
+                        realtimeProcessor.setEffectsEnabled(effectsEnabled);
+                    }
+
+                    logEvent('realtimeEventLog', `Effects ${effectsEnabled ? 'enabled' : 'disabled'}`);
+                });
+
+                toggleMuteBtn.addEventListener('click', () => {
+                    outputMuted = !outputMuted;
+                    toggleMuteBtn.textContent = outputMuted ? '🔊 Unmute Output' : '🔇 Mute Output';
+                    toggleMuteBtn.className = outputMuted ? 'btn btn-success' : 'btn btn-warning';
+
+                    if (realtimeProcessor) {
+                        realtimeProcessor.setOutputMuted(outputMuted);
+                    }
+
+                    logEvent('realtimeEventLog', `Output ${outputMuted ? 'muted' : 'unmuted'}`);
+                });
+
+                document.getElementById('clearRealtimeLogBtn').addEventListener('click', () => {
+                    document.getElementById('realtimeEventLog').innerHTML = '';
+                });
+
+                document.getElementById('outputVolume').addEventListener('input', (e) => {
+                    const volume = parseFloat(e.target.value);
+                    const volumeValueEl = document.getElementById('outputVolumeValue');
+                    if (volumeValueEl) {
+                        volumeValueEl.textContent = volume.toFixed(2);
+                    }
+                    if (realtimeProcessor) {
+                        realtimeProcessor.setOutputVolume(volume);
+                    }
+                });
+
+                logEvent('realtimeEventLog', 'Real-time demo initialized');
+            }
+
+            // Permissions functionality
+            function initializePermissions() {
+                if (!permissionManager) {
+                    permissionManager = PermissionManager.getInstance();
+                }
+
+                const checkPermissionBtn = document.getElementById('checkPermissionBtn');
+                const requestPermissionBtn = document.getElementById('requestPermissionBtn');
+                const enumerateDevicesBtn = document.getElementById('enumerateDevicesBtn');
+                const testMicrophoneBtn = document.getElementById('testMicrophoneBtn');
+                const devicesList = document.getElementById('devicesList');
+                const deviceIdSelect = document.getElementById('deviceId');
+
+                async function updatePermissionStatus() {
+                    try {
+                        const status = await permissionManager.checkPermissionState();
+
+                        document.getElementById('currentPermission').textContent = status.status;
+                        const capabilities = permissionManager.getCapabilities();
+                        document.getElementById('browserType').textContent = capabilities.browser;
+                        document.getElementById('streamActive').textContent = permissionManager.getCurrentStream() ? 'Yes' : 'No';
+
+                        // Update status color
+                        const statusElement = document.getElementById('permissionStatus');
+                        if (status.status === 'granted') {
+                            updateStatus('permissionStatus', 'Microphone permission granted', 'success');
+                        } else if (status.status === 'denied') {
+                            updateStatus('permissionStatus', 'Microphone permission denied', 'error');
+                        } else {
+                            updateStatus('permissionStatus', 'Microphone permission not requested', 'info');
+                        }
+
+                        logEvent('permissionEventLog', 'Permission status updated:', status);
+                        logEvent('permissionEventLog', '✅ Permission check completed');
+                    } catch (error) {
+                        updateStatus('permissionStatus', `Error checking permission: ${error.message}`, 'error');
+                        logEvent('permissionEventLog', 'Failed to update permission status:', error);
+                    }
+                }
+
+                async function updateDevicesList() {
+                    try {
+                        const devices = await permissionManager.getAudioInputDevices();
+
+                        document.getElementById('deviceCount').textContent = devices.length;
+
+                        if (devices.length === 0) {
+                            devicesList.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🎤</div>
+                                <p>No audio devices found. Grant microphone permission to see available devices.</p>
+                            </div>
+                        `;
+                            return;
+                        }
+
+                        // Update devices list
+                        devicesList.innerHTML = devices
+                            .map(
+                                (device, index) => `
+                            <div class="recording-item">
+                                <div class="recording-info">
+                                    <div class="recording-title">${device.label || `Device ${index + 1}`}</div>
+                                    <div class="recording-meta">
+                                        ID: ${device.deviceId.substring(0, 20)}... |
+                                        Kind: ${device.kind} |
+                                        Group: ${device.groupId.substring(0, 8)}...
+                                    </div>
+                                </div>
+                            </div>
+                        `
+                            )
+                            .join('');
+
+                        // Update device selector
+                        deviceIdSelect.innerHTML =
+                            '<option value="">Default Device</option>' +
+                            devices
+                                .map((device) => `<option value="${device.deviceId}">${device.label || `Device ${devices.indexOf(device) + 1}`}</option>`)
+                                .join('');
+
+                        logEvent('permissionEventLog', `Found ${devices.length} audio devices`);
+                    } catch (error) {
+                        updateStatus('permissionStatus', `Error enumerating devices: ${error.message}`, 'error');
+                        logEvent('permissionEventLog', 'Device enumeration error:', error);
+                    }
+                }
+
+                // Event listeners
+                checkPermissionBtn.addEventListener('click', async () => {
+                    updateStatus('permissionStatus', 'Checking permission status...', 'info');
+                    logEvent('permissionEventLog', 'Checking permission status...');
+                    await updatePermissionStatus();
+                });
+
+                requestPermissionBtn.addEventListener('click', async () => {
+                    try {
+                        updateStatus('permissionStatus', 'Requesting microphone permission...', 'info');
+
+                        const constraints = {
+                            deviceId: deviceIdSelect.value || undefined,
+                            sampleRate: document.getElementById('sampleRate').value ? parseInt(document.getElementById('sampleRate').value) : undefined,
+                            channelCount: document.getElementById('channelCount').value ? parseInt(document.getElementById('channelCount').value) : undefined,
+                            echoCancellation: document.getElementById('permissionEchoCancellation').checked,
+                            noiseSuppression: document.getElementById('permissionNoiseSuppression').checked,
+                            autoGainControl: document.getElementById('permissionAutoGainControl').checked,
+                        };
+
+                        const result = await permissionManager.requestPermission(constraints);
+
+                        if (result.granted) {
+                            updateStatus('permissionStatus', 'Permission granted successfully', 'success');
+                            await updatePermissionStatus();
+                            await updateDevicesList();
+                        } else {
+                            updateStatus('permissionStatus', `Permission denied: ${result.error?.message}`, 'error');
+
+                            // Show guidance
+                            const guidance = permissionManager.getPermissionErrorGuidance(result.error);
+                            logEvent('permissionEventLog', 'Permission guidance:', guidance);
+                        }
+                    } catch (error) {
+                        updateStatus('permissionStatus', `Permission request error: ${error.message}`, 'error');
+                        logEvent('permissionEventLog', 'Permission request error:', error);
+                    }
+                });
+
+                enumerateDevicesBtn.addEventListener('click', async () => {
+                    await updateDevicesList();
+                });
+
+                testMicrophoneBtn.addEventListener('click', async () => {
+                    try {
+                        updateStatus('permissionStatus', 'Testing microphone access...', 'info');
+
+                        const result = await permissionManager.testMicrophoneAccess();
+
+                        if (result.granted) {
+                            updateStatus('permissionStatus', 'Microphone test successful', 'success');
+                            logEvent('permissionEventLog', 'Microphone test passed');
+
+                            // Test audio for 3 seconds
+                            setTimeout(() => {
+                                if (permissionManager.getCurrentStream()) {
+                                    permissionManager
+                                        .getCurrentStream()
+                                        .getTracks()
+                                        .forEach((track) => track.stop());
+                                    updateStatus('permissionStatus', 'Microphone test completed', 'info');
+                                }
+                            }, 3000);
+                        } else {
+                            updateStatus('permissionStatus', `Microphone test failed: ${result.error?.message}`, 'error');
+                            logEvent('permissionEventLog', 'Microphone test failed:', result.error);
+
+                            // Show guidance
+                            const guidance = permissionManager.getPermissionErrorGuidance(result.error);
+                            logEvent('permissionEventLog', 'Troubleshooting guidance:', guidance);
+                        }
+                    } catch (error) {
+                        updateStatus('permissionStatus', `Microphone test error: ${error.message}`, 'error');
+                        logEvent('permissionEventLog', 'Microphone test error:', error);
+                    }
+                });
+
+                document.getElementById('clearPermissionLogBtn').addEventListener('click', () => {
+                    document.getElementById('permissionEventLog').innerHTML = '';
+                });
+
+                // Initialize
+                updatePermissionStatus();
+                logEvent('permissionEventLog', 'Permission demo initialized');
+            }
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+                if (streamer) streamer.dispose();
+                if (recorder) recorder.dispose();
+                if (realtimeProcessor) realtimeProcessor.dispose();
+            });
+        </script>
+    </body>
+</html>

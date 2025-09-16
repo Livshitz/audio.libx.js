@@ -10,6 +10,7 @@ export class RealtimeAudioProcessor {
     private _sourceNode: MediaStreamAudioSourceNode | null = null;
     private _analyserNode: AnalyserNode | null = null;
     private _gainNode: GainNode | null = null;
+    private _outputGainNode: GainNode | null = null;
     private _filterNode: BiquadFilterNode | null = null;
     private _effectNodes: Map<string, AudioNode> = new Map();
     private _options: RealtimeProcessingOptions;
@@ -51,8 +52,9 @@ export class RealtimeAudioProcessor {
             // Set up processing chain
             await this._setupProcessingChain();
 
-            console.log('RealtimeAudioProcessor initialized');
+            console.log('RealtimeAudioProcessor initialized with sample rate:', this._audioContext.sampleRate);
         } catch (error) {
+            console.error('Failed to initialize RealtimeAudioProcessor:', error);
             throw new ProcessingError('Failed to initialize RealtimeAudioProcessor', undefined, error as Error);
         }
     }
@@ -62,31 +64,27 @@ export class RealtimeAudioProcessor {
             throw new ProcessingError('AudioContext or source node not available');
         }
 
-        let currentNode: AudioNode = this._sourceNode;
-
         // Set up gain node for volume control
         this._gainNode = this._audioContext.createGain();
         this._gainNode.gain.value = 1.0;
-        currentNode.connect(this._gainNode);
-        currentNode = this._gainNode;
 
         // Set up filter node for basic EQ
         this._filterNode = this._audioContext.createBiquadFilter();
         this._filterNode.type = 'allpass';
         this._filterNode.frequency.value = 1000;
-        this._gainNode.connect(this._filterNode);
-        currentNode = this._filterNode;
 
         // Set up analyser node for monitoring
         this._analyserNode = this._audioContext.createAnalyser();
         this._analyserNode.fftSize = 2048;
         this._analyserNode.smoothingTimeConstant = 0.8;
-        currentNode.connect(this._analyserNode);
 
-        // Apply audio effects if enabled
-        if (this._options.enableEffects && this._options.effects) {
-            currentNode = await this._applyEffects(currentNode);
-        }
+        // Set up output gain node for volume control
+        this._outputGainNode = this._audioContext.createGain();
+        this._outputGainNode.gain.value = 0.3; // Start with low volume to avoid feedback
+        this._outputGainNode.connect(this._audioContext.destination);
+
+        // Build the full processing chain
+        await this._rebuildProcessingChain();
 
         console.log('Processing chain setup complete');
     }
@@ -271,6 +269,18 @@ export class RealtimeAudioProcessor {
             timestamp: Date.now(),
         };
 
+        // Debug logging (only log occasionally to avoid spam)
+        if (Math.random() < 0.01) {
+            // Log 1% of the time
+            console.log('Processing audio frame:', {
+                level: level.toFixed(3),
+                dbLevel: dbLevel.toFixed(1),
+                isSilence,
+                bufferLength,
+                hasCallbacks: !!this._callbacks.onAudioData,
+            });
+        }
+
         // Emit audio data
         if (this._callbacks.onAudioData) {
             this._callbacks.onAudioData(realtimeData);
@@ -309,35 +319,81 @@ export class RealtimeAudioProcessor {
 
         // Update effects if changed
         if (options.effects && this._audioContext) {
-            this._updateEffects();
-        }
-    }
-
-    private _updateEffects(): void {
-        // Remove existing effects
-        for (const [type, node] of this._effectNodes) {
-            try {
-                node.disconnect();
-            } catch (error) {
-                // Ignore disconnect errors
-            }
-        }
-        this._effectNodes.clear();
-
-        // Reapply effects with updated parameters
-        if (this._options.enableEffects && this._filterNode) {
-            this._applyEffects(this._filterNode).catch((error) => {
-                console.warn('Failed to update effects:', error);
-            });
+            this._rebuildProcessingChain();
         }
     }
 
     /**
-     * Adjust volume (gain)
+     * Enable/disable all effects
+     */
+    public setEffectsEnabled(enabled: boolean): void {
+        this._options.enableEffects = enabled;
+        console.log(`Effects ${enabled ? 'enabled' : 'disabled'}. Rebuilding processing chain.`);
+        this._rebuildProcessingChain().catch((error) => {
+            console.warn('Failed to rebuild processing chain for effects toggle:', error);
+        });
+    }
+
+    private async _rebuildProcessingChain(): Promise<void> {
+        if (!this._audioContext || !this._sourceNode || !this._gainNode || !this._filterNode || !this._analyserNode || !this._outputGainNode) {
+            console.warn('Cannot rebuild chain: essential nodes are missing.');
+            return;
+        }
+
+        console.log('Disconnecting all nodes before rebuilding...');
+        this._sourceNode.disconnect();
+        this._gainNode.disconnect();
+        this._filterNode.disconnect();
+        this._analyserNode.disconnect();
+        for (const node of this._effectNodes.values()) {
+            node.disconnect();
+        }
+        this._effectNodes.clear();
+
+        let currentNode: AudioNode = this._sourceNode;
+
+        currentNode.connect(this._gainNode);
+        currentNode = this._gainNode;
+
+        currentNode.connect(this._filterNode);
+        currentNode = this._filterNode;
+
+        if (this._options.enableEffects) {
+            console.log('Applying effects...');
+            currentNode = await this._applyEffects(currentNode);
+        }
+
+        currentNode.connect(this._analyserNode);
+
+        currentNode.connect(this._outputGainNode);
+
+        console.log('Processing chain rebuilt successfully.');
+    }
+
+    /**
+     * Adjust input volume (gain)
      */
     public setVolume(volume: number): void {
         if (this._gainNode) {
             this._gainNode.gain.value = Math.max(0, Math.min(2, volume)); // Clamp between 0 and 2
+        }
+    }
+
+    /**
+     * Adjust output volume (what you hear)
+     */
+    public setOutputVolume(volume: number): void {
+        if (this._outputGainNode) {
+            this._outputGainNode.gain.value = Math.max(0, Math.min(1, volume)); // Clamp between 0 and 1
+        }
+    }
+
+    /**
+     * Mute/unmute output
+     */
+    public setOutputMuted(muted: boolean): void {
+        if (this._outputGainNode) {
+            this._outputGainNode.gain.value = muted ? 0 : 0.3; // 0.3 is default volume
         }
     }
 
@@ -359,7 +415,7 @@ export class RealtimeAudioProcessor {
         const effect = this._options.effects?.find((e) => e.type === effectType);
         if (effect) {
             effect.enabled = enabled;
-            this._updateEffects();
+            this._rebuildProcessingChain();
         }
     }
 
@@ -460,6 +516,14 @@ export class RealtimeAudioProcessor {
             }
         }
 
+        if (this._outputGainNode) {
+            try {
+                this._outputGainNode.disconnect();
+            } catch (error) {
+                // Ignore disconnect errors
+            }
+        }
+
         if (this._filterNode) {
             try {
                 this._filterNode.disconnect();
@@ -495,6 +559,7 @@ export class RealtimeAudioProcessor {
         this._sourceNode = null;
         this._analyserNode = null;
         this._gainNode = null;
+        this._outputGainNode = null;
         this._filterNode = null;
         this._effectNodes.clear();
         this._callbacks = {};

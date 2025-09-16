@@ -360,6 +360,9 @@ export interface PermissionResult {
 }
 
 export interface MediaConstraintsOptions {
+    /** Device ID for specific audio input device */
+    deviceId?: string;
+
     /** Enable echo cancellation */
     echoCancellation?: boolean;
 

@@ -116,7 +116,7 @@ const server = http.createServer((req, res) => {
 
 	// Handle root path
 	if (pathname === '/') {
-		pathname = '/examples/basic-usage.html';
+		pathname = '/examples/demo.html';
 	}
 
 	// Handle files in examples directory - if path starts with /files/, prepend /examples
@@ -157,7 +157,7 @@ server.listen(PORT, () => {
 	console.log(`   http://127.0.0.1:${PORT}`);
 	console.log('');
 	console.log('📁 Available examples:');
-	console.log(`   http://localhost:${PORT}/examples/basic-usage.html`);
+	console.log(`   http://localhost:${PORT}/examples/demo.html`);
 	console.log('');
 	if (isDev) {
 		console.log('🔧 Development mode enabled');

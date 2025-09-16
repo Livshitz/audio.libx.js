@@ -113,6 +113,9 @@ export class PermissionManager {
         };
 
         // Add optional constraints if specified
+        if (options.deviceId) {
+            audioConstraints.deviceId = options.deviceId;
+        }
         if (options.sampleRate) {
             audioConstraints.sampleRate = options.sampleRate;
         }
@@ -123,12 +126,19 @@ export class PermissionManager {
         // Safari compatibility: avoid problematic constraints
         if (this._isSafari()) {
             // Safari can be picky about constraints, use minimal set
+            const safariConstraints: MediaTrackConstraints = {
+                echoCancellation: audioConstraints.echoCancellation,
+                noiseSuppression: audioConstraints.noiseSuppression,
+                autoGainControl: audioConstraints.autoGainControl,
+            };
+
+            // Include deviceId if specified (Safari supports this)
+            if (audioConstraints.deviceId) {
+                safariConstraints.deviceId = audioConstraints.deviceId;
+            }
+
             return {
-                audio: {
-                    echoCancellation: audioConstraints.echoCancellation,
-                    noiseSuppression: audioConstraints.noiseSuppression,
-                    autoGainControl: audioConstraints.autoGainControl,
-                },
+                audio: safariConstraints,
             };
         }
 
