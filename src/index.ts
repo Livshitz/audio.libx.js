@@ -21,6 +21,11 @@ export { AudioCache } from './AudioCache.js';
 export { AudioProcessor } from './AudioProcessor.js';
 export { MediaSourceHelper } from './MediaSourceHelper.js';
 
+// Recording exports
+export { AudioRecorder } from './AudioRecorder.js';
+export { PermissionManager } from './PermissionManager.js';
+export { RealtimeAudioProcessor } from './RealtimeAudioProcessor.js';
+
 // Type exports
 export type {
     AudioStreamerOptions,
@@ -34,18 +39,27 @@ export type {
     MediaSourceInfo,
     AudioFormat,
     ChunkAppendOptions,
-    CacheStats
+    CacheStats,
+    // Recording types
+    AudioRecorderOptions,
+    RecordingState,
+    RecordingResult,
+    RecordingData,
+    RecordingEvent,
+    RecordingEventType,
+    RecordingEventCallback,
+    PermissionState,
+    PermissionResult,
+    MediaConstraintsOptions,
+    RealtimeProcessingOptions,
+    RealtimeAudioData,
+    AudioEffect,
 } from './types.js';
 
 // Error exports
-export {
-    AudioStreamingError,
-    MediaSourceError,
-    CacheError,
-    ProcessingError
-} from './types.js';
+export { AudioStreamingError, MediaSourceError, CacheError, ProcessingError, RecordingError, PermissionError } from './types.js';
 
-// Convenience factory function
+// Convenience factory functions
 export function createAudioStreamer(
     audioElement: HTMLAudioElement,
     options?: import('./types.js').AudioStreamerOptions
@@ -53,6 +67,11 @@ export function createAudioStreamer(
     return new AudioStreamer(audioElement, options);
 }
 
+export function createAudioRecorder(options?: import('./types.js').AudioRecorderOptions): AudioRecorder {
+    return new AudioRecorder(options);
+}
+
 // Default export for CommonJS compatibility
 import { AudioStreamer } from './AudioStreamer.js';
+import { AudioRecorder } from './AudioRecorder.js';
 export default AudioStreamer;

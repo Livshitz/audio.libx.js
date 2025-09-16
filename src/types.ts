@@ -199,3 +199,231 @@ export class ProcessingError extends AudioStreamingError {
 		super(message, 'PROCESSING_ERROR', audioId, originalError);
 	}
 }
+
+export class RecordingError extends AudioStreamingError {
+    constructor(message: string, recordingId?: string, originalError?: Error) {
+        super(message, 'RECORDING_ERROR', recordingId, originalError);
+    }
+}
+
+export class PermissionError extends AudioStreamingError {
+    constructor(message: string, originalError?: Error) {
+        super(message, 'PERMISSION_ERROR', undefined, originalError);
+    }
+}
+
+// Recording-related types
+export interface AudioRecorderOptions {
+    /** MIME type for recorded audio (auto-detected if not specified) */
+    mimeType?: string;
+
+    /** Audio bits per second for recording quality */
+    audioBitsPerSecond?: number;
+
+    /** Enable echo cancellation */
+    enableEchoCancellation?: boolean;
+
+    /** Enable noise suppression */
+    enableNoiseSuppression?: boolean;
+
+    /** Enable automatic gain control */
+    enableAutoGainControl?: boolean;
+
+    /** Maximum recording duration in milliseconds */
+    maxDuration?: number;
+
+    /** Enable real-time audio processing during recording */
+    enableRealtimeProcessing?: boolean;
+
+    /** Silence threshold for real-time detection (in dB) */
+    silenceThresholdDb?: number;
+}
+
+export interface RecordingState {
+    /** Current recording state */
+    state: 'idle' | 'requesting-permission' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
+
+    /** Current recording ID */
+    recordingId?: string;
+
+    /** Recording duration in milliseconds */
+    duration: number;
+
+    /** Whether microphone permission is granted */
+    hasPermission: boolean;
+
+    /** Current audio level (0-1) if available */
+    audioLevel?: number;
+
+    /** Error message if state is 'error' */
+    error?: string;
+}
+
+export interface RecordingResult {
+    /** Unique identifier for this recording */
+    recordingId: string;
+
+    /** Promise that resolves when recording starts */
+    onStarted: Promise<string>;
+
+    /** Promise that resolves when recording completes */
+    onCompleted: Promise<RecordingData>;
+
+    /** Stop the recording */
+    stop: () => Promise<RecordingData>;
+
+    /** Pause the recording (if supported) */
+    pause: () => void;
+
+    /** Resume the recording (if supported) */
+    resume: () => void;
+
+    /** Cancel the recording */
+    cancel: () => void;
+}
+
+export interface RecordingData {
+    /** Recording ID */
+    id: string;
+
+    /** Audio data as Blob */
+    blob: Blob;
+
+    /** MIME type of recorded audio */
+    mimeType: string;
+
+    /** Recording duration in milliseconds */
+    duration: number;
+
+    /** Recording metadata */
+    metadata: {
+        /** Recording start time */
+        startTime: number;
+        /** Recording end time */
+        endTime: number;
+        /** Sample rate */
+        sampleRate?: number;
+        /** Number of channels */
+        channels?: number;
+        /** Average audio level during recording */
+        averageLevel?: number;
+    };
+}
+
+export type RecordingEventType =
+    | 'permissionRequested'
+    | 'permissionGranted'
+    | 'permissionDenied'
+    | 'recordingStarted'
+    | 'recordingPaused'
+    | 'recordingResumed'
+    | 'recordingStopped'
+    | 'recordingCompleted'
+    | 'recordingCancelled'
+    | 'audioLevel'
+    | 'durationUpdate'
+    | 'recordingError';
+
+export interface RecordingEvent {
+    type: RecordingEventType;
+    recordingId?: string;
+    data?: any;
+    timestamp: number;
+}
+
+export type RecordingEventCallback = (event: RecordingEvent) => void;
+
+// Permission-related types
+export interface PermissionState {
+    /** Current permission status */
+    status: 'granted' | 'denied' | 'prompt' | 'unknown';
+
+    /** Whether permission check is supported */
+    isSupported: boolean;
+
+    /** Error details if permission failed */
+    error?: PermissionError;
+}
+
+export interface PermissionResult {
+    /** Whether permission was granted */
+    granted: boolean;
+
+    /** Permission state details */
+    state: PermissionState;
+
+    /** Media stream if permission was granted */
+    stream?: MediaStream;
+
+    /** Error if permission failed */
+    error?: PermissionError;
+}
+
+export interface MediaConstraintsOptions {
+    /** Enable echo cancellation */
+    echoCancellation?: boolean;
+
+    /** Enable noise suppression */
+    noiseSuppression?: boolean;
+
+    /** Enable automatic gain control */
+    autoGainControl?: boolean;
+
+    /** Sample rate preference */
+    sampleRate?: number;
+
+    /** Channel count preference */
+    channelCount?: number;
+}
+
+// Real-time processing types
+export interface RealtimeProcessingOptions {
+    /** Enable real-time silence detection */
+    enableSilenceDetection?: boolean;
+
+    /** Silence threshold in dB */
+    silenceThresholdDb?: number;
+
+    /** Enable real-time audio level monitoring */
+    enableLevelMonitoring?: boolean;
+
+    /** Level update interval in milliseconds */
+    levelUpdateInterval?: number;
+
+    /** Enable real-time audio effects */
+    enableEffects?: boolean;
+
+    /** Audio effects to apply */
+    effects?: AudioEffect[];
+}
+
+export interface AudioEffect {
+    /** Effect type */
+    type: 'gain' | 'filter' | 'reverb' | 'echo' | 'custom';
+
+    /** Effect parameters */
+    parameters: Record<string, any>;
+
+    /** Whether effect is enabled */
+    enabled: boolean;
+}
+
+export interface RealtimeAudioData {
+    /** Audio data as Float32Array */
+    audioData: Float32Array;
+
+    /** Sample rate */
+    sampleRate: number;
+
+    /** Number of channels */
+    channels: number;
+
+    /** Current audio level (0-1) */
+    level: number;
+
+    /** Whether silence is detected */
+    isSilence: boolean;
+
+    /** Timestamp */
+    timestamp: number;
+}

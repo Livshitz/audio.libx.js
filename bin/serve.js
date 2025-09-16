@@ -119,6 +119,11 @@ const server = http.createServer((req, res) => {
 		pathname = '/examples/basic-usage.html';
 	}
 
+	// Handle files in examples directory - if path starts with /files/, prepend /examples
+	if (pathname.startsWith('/files/')) {
+		pathname = '/examples' + pathname;
+	}
+
 	const filePath = path.join(__dirname, '..', pathname);
 
 	console.log(`${req.method} ${pathname} -> ${filePath}`);

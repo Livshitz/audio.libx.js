@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>audio.libx.js - Recording Example</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                line-height: 1.6;
+            }
+
+            .container {
+                background: #f5f5f5;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+            }
+
+            button {
+                background: #007cba;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin: 5px;
+            }
+
+            button:hover {
+                background: #005a8b;
+            }
+
+            button:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+            }
+
+            button.recording {
+                background: #dc3545;
+                animation: pulse 1s infinite;
+            }
+
+            @keyframes pulse {
+                0% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.7;
+                }
+                100% {
+                    opacity: 1;
+                }
+            }
+
+            .status {
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 4px;
+                background: #e7f3ff;
+                border-left: 4px solid #007cba;
+            }
+
+            .error {
+                background: #ffe7e7;
+                border-left-color: #ff0000;
+            }
+
+            .success {
+                background: #e7ffe7;
+                border-left-color: #00aa00;
+            }
+
+            .controls {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                align-items: center;
+                margin: 10px 0;
+            }
+
+            .level-meter {
+                width: 200px;
+                height: 20px;
+                background: #ddd;
+                border-radius: 10px;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .level-bar {
+                height: 100%;
+                background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+                width: 0%;
+                transition: width 0.1s ease;
+            }
+
+            .duration {
+                font-family: monospace;
+                font-size: 18px;
+                font-weight: bold;
+                color: #007cba;
+            }
+
+            .recordings-list {
+                max-height: 300px;
+                overflow-y: auto;
+            }
+
+            .recording-item {
+                background: white;
+                padding: 10px;
+                margin: 5px 0;
+                border-radius: 4px;
+                border: 1px solid #ddd;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .recording-info {
+                flex: 1;
+            }
+
+            .recording-actions {
+                display: flex;
+                gap: 5px;
+            }
+
+            .log {
+                background: #f9f9f9;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 10px;
+                max-height: 200px;
+                overflow-y: auto;
+                font-family: monospace;
+                font-size: 12px;
+            }
+
+            .config-section {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 10px;
+                margin: 10px 0;
+            }
+
+            .config-item {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            label {
+                font-weight: bold;
+            }
+
+            input[type='range'] {
+                width: 100%;
+            }
+
+            select,
+            input[type='number'] {
+                padding: 5px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+
+            .visualizer {
+                width: 100%;
+                height: 100px;
+                background: #000;
+                border-radius: 4px;
+                margin: 10px 0;
+            }
+        </style>
+    </head>
+
+    <body>
+        <h1>audio.libx.js - Recording Example</h1>
+
+        <div class="container">
+            <h2>Audio Recording Demo</h2>
+            <p>
+                This example demonstrates the recording capabilities of audio.libx.js including permission management, real-time processing, and audio level
+                monitoring.
+            </p>
+
+            <div class="controls">
+                <button id="startBtn">🎤 Start Recording</button>
+                <button id="stopBtn" disabled>⏹️ Stop</button>
+                <button id="pauseBtn" disabled>⏸️ Pause</button>
+                <button id="resumeBtn" disabled>▶️ Resume</button>
+                <button id="testPermissionBtn">🔒 Test Permission</button>
+            </div>
+
+            <div class="controls">
+                <div class="duration" id="duration">00:00</div>
+                <div class="level-meter">
+                    <div class="level-bar" id="levelBar"></div>
+                </div>
+            </div>
+
+            <canvas id="visualizer" class="visualizer" width="800" height="100"></canvas>
+
+            <div id="status" class="status">Ready to record...</div>
+        </div>
+
+        <div class="container">
+            <h3>Configuration</h3>
+            <div class="config-section">
+                <div class="config-item">
+                    <label for="mimeType">MIME Type:</label>
+                    <select id="mimeType">
+                        <option value="">Auto-detect</option>
+                        <option value="audio/webm;codecs=opus">WebM Opus</option>
+                        <option value="audio/webm">WebM</option>
+                        <option value="audio/mp4">MP4</option>
+                        <option value="audio/wav">WAV</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label for="bitrate">Bitrate (kbps):</label>
+                    <input type="number" id="bitrate" value="128" min="64" max="320" step="32" />
+                </div>
+                <div class="config-item">
+                    <label for="maxDuration">Max Duration (sec):</label>
+                    <input type="number" id="maxDuration" value="300" min="10" max="3600" step="10" />
+                </div>
+            </div>
+            <div class="config-section">
+                <div class="config-item">
+                    <label> <input type="checkbox" id="echoCancellation" checked /> Echo Cancellation </label>
+                </div>
+                <div class="config-item">
+                    <label> <input type="checkbox" id="noiseSuppression" checked /> Noise Suppression </label>
+                </div>
+                <div class="config-item">
+                    <label> <input type="checkbox" id="autoGainControl" checked /> Auto Gain Control </label>
+                </div>
+                <div class="config-item">
+                    <label> <input type="checkbox" id="realtimeProcessing" checked /> Real-time Processing </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <h3>Recordings</h3>
+            <div id="recordingsList" class="recordings-list">
+                <p>No recordings yet. Start recording to see them here.</p>
+            </div>
+            <button id="clearRecordings">Clear All Recordings</button>
+        </div>
+
+        <div class="container">
+            <h3>Event Log</h3>
+            <div id="eventLog" class="log"></div>
+            <button id="clearLogBtn">Clear Log</button>
+        </div>
+
+        <script type="module">
+            // Import the library
+            import { createAudioRecorder, PermissionManager, RealtimeAudioProcessor } from '../build/index.js';
+
+            // Get DOM elements
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const resumeBtn = document.getElementById('resumeBtn');
+            const testPermissionBtn = document.getElementById('testPermissionBtn');
+            const duration = document.getElementById('duration');
+            const levelBar = document.getElementById('levelBar');
+            const visualizer = document.getElementById('visualizer');
+            const status = document.getElementById('status');
+            const eventLog = document.getElementById('eventLog');
+            const clearLogBtn = document.getElementById('clearLogBtn');
+            const recordingsList = document.getElementById('recordingsList');
+            const clearRecordings = document.getElementById('clearRecordings');
+
+            // Config elements
+            const mimeType = document.getElementById('mimeType');
+            const bitrate = document.getElementById('bitrate');
+            const maxDuration = document.getElementById('maxDuration');
+            const echoCancellation = document.getElementById('echoCancellation');
+            const noiseSuppression = document.getElementById('noiseSuppression');
+            const autoGainControl = document.getElementById('autoGainControl');
+            const realtimeProcessing = document.getElementById('realtimeProcessing');
+
+            // State
+            let recorder = null;
+            let currentRecording = null;
+            let recordings = [];
+            let realtimeProcessor = null;
+            let visualizerContext = null;
+
+            // Initialize visualizer
+            if (visualizer) {
+                visualizerContext = visualizer.getContext('2d');
+                visualizerContext.fillStyle = '#000';
+                visualizerContext.fillRect(0, 0, visualizer.width, visualizer.height);
+            }
+
+            // Initialize recorder with default options
+            function initializeRecorder() {
+                if (recorder) {
+                    recorder.dispose();
+                }
+
+                const options = {
+                    mimeType: mimeType.value || undefined,
+                    audioBitsPerSecond: parseInt(bitrate.value) * 1000,
+                    maxDuration: parseInt(maxDuration.value) * 1000,
+                    enableEchoCancellation: echoCancellation.checked,
+                    enableNoiseSuppression: noiseSuppression.checked,
+                    enableAutoGainControl: autoGainControl.checked,
+                    enableRealtimeProcessing: realtimeProcessing.checked,
+                    silenceThresholdDb: -50,
+                };
+
+                recorder = createAudioRecorder(options);
+
+                // Set up event listeners
+                recorder.on('permissionRequested', handlePermissionRequested);
+                recorder.on('permissionGranted', handlePermissionGranted);
+                recorder.on('permissionDenied', handlePermissionDenied);
+                recorder.on('recordingStarted', handleRecordingStarted);
+                recorder.on('recordingPaused', handleRecordingPaused);
+                recorder.on('recordingResumed', handleRecordingResumed);
+                recorder.on('recordingStopped', handleRecordingStopped);
+                recorder.on('recordingCompleted', handleRecordingCompleted);
+                recorder.on('recordingCancelled', handleRecordingCancelled);
+                recorder.on('audioLevel', handleAudioLevel);
+                recorder.on('durationUpdate', handleDurationUpdate);
+                recorder.on('recordingError', handleRecordingError);
+
+                logEvent('Recorder initialized with options:', options);
+            }
+
+            // Event handlers
+            function handlePermissionRequested(event) {
+                updateStatus('Requesting microphone permission...', false);
+                logEvent('Permission requested', event.recordingId);
+            }
+
+            function handlePermissionGranted(event) {
+                updateStatus('Permission granted', false);
+                logEvent('Permission granted', event.recordingId);
+            }
+
+            function handlePermissionDenied(event) {
+                updateStatus(`Permission denied: ${event.data?.message || 'Unknown error'}`, true);
+                logEvent('Permission denied:', event.data);
+                resetButtons();
+            }
+
+            function handleRecordingStarted(event) {
+                updateStatus('Recording...', false);
+                startBtn.disabled = true;
+                startBtn.classList.add('recording');
+                stopBtn.disabled = false;
+                pauseBtn.disabled = false;
+                resumeBtn.disabled = true;
+                logEvent('Recording started', event.recordingId);
+
+                // Set up real-time processor if enabled
+                if (realtimeProcessing.checked && recorder) {
+                    setupRealtimeProcessor();
+                }
+            }
+
+            function handleRecordingPaused(event) {
+                updateStatus('Recording paused', false);
+                pauseBtn.disabled = true;
+                resumeBtn.disabled = false;
+                logEvent('Recording paused', event.recordingId);
+            }
+
+            function handleRecordingResumed(event) {
+                updateStatus('Recording resumed', false);
+                pauseBtn.disabled = false;
+                resumeBtn.disabled = true;
+                logEvent('Recording resumed', event.recordingId);
+            }
+
+            function handleRecordingStopped(event) {
+                updateStatus('Processing recording...', false);
+                logEvent('Recording stopped', event.recordingId);
+            }
+
+            function handleRecordingCompleted(event) {
+                updateStatus('Recording completed successfully', false);
+                addRecording(event.data);
+                resetButtons();
+                logEvent('Recording completed:', event.data);
+            }
+
+            function handleRecordingCancelled(event) {
+                updateStatus('Recording cancelled', false);
+                resetButtons();
+                logEvent('Recording cancelled', event.recordingId);
+            }
+
+            function handleAudioLevel(event) {
+                const level = event.data?.level || event.data || 0;
+                updateLevelMeter(level);
+                updateVisualizer(event.data);
+            }
+
+            function handleDurationUpdate(event) {
+                const ms = event.data || 0;
+                updateDuration(ms);
+            }
+
+            function handleRecordingError(event) {
+                updateStatus(`Error: ${event.data?.message || 'Unknown error'}`, true);
+                resetButtons();
+                logEvent('Recording error:', event.data);
+            }
+
+            // UI helper functions
+            function updateStatus(message, isError = false) {
+                status.textContent = message;
+                status.className = isError ? 'status error' : 'status';
+            }
+
+            function updateDuration(ms) {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                duration.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }
+
+            function updateLevelMeter(level) {
+                const percentage = Math.min(level * 100, 100);
+                levelBar.style.width = `${percentage}%`;
+            }
+
+            function updateVisualizer(audioData) {
+                if (!visualizerContext || !audioData?.audioData) return;
+
+                const canvas = visualizer;
+                const ctx = visualizerContext;
+                const width = canvas.width;
+                const height = canvas.height;
+
+                // Clear canvas
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, width, height);
+
+                // Draw waveform
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                const data = audioData.audioData;
+                const sliceWidth = width / data.length;
+                let x = 0;
+
+                for (let i = 0; i < data.length; i++) {
+                    const v = (data[i] + 1) / 2; // Normalize from [-1, 1] to [0, 1]
+                    const y = v * height;
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+
+                    x += sliceWidth;
+                }
+
+                ctx.stroke();
+
+                // Draw level indicator
+                ctx.fillStyle = audioData.isSilence ? '#666' : '#00ff00';
+                ctx.fillRect(width - 20, height - audioData.level * height, 15, audioData.level * height);
+            }
+
+            function resetButtons() {
+                startBtn.disabled = false;
+                startBtn.classList.remove('recording');
+                stopBtn.disabled = true;
+                pauseBtn.disabled = true;
+                resumeBtn.disabled = true;
+                levelBar.style.width = '0%';
+                updateDuration(0);
+
+                // Stop real-time processor
+                if (realtimeProcessor) {
+                    realtimeProcessor.dispose();
+                    realtimeProcessor = null;
+                }
+            }
+
+            function addRecording(recordingData) {
+                recordings.push(recordingData);
+                updateRecordingsList();
+            }
+
+            function updateRecordingsList() {
+                if (recordings.length === 0) {
+                    recordingsList.innerHTML = '<p>No recordings yet. Start recording to see them here.</p>';
+                    return;
+                }
+
+                recordingsList.innerHTML = recordings
+                    .map(
+                        (recording, index) => `
+				<div class="recording-item">
+					<div class="recording-info">
+						<strong>Recording ${index + 1}</strong><br>
+						Duration: ${formatDuration(recording.duration)}<br>
+						Size: ${formatFileSize(recording.blob.size)}<br>
+						Type: ${recording.mimeType}
+					</div>
+					<div class="recording-actions">
+						<button onclick="playRecording(${index})">▶️ Play</button>
+						<button onclick="downloadRecording(${index})">💾 Download</button>
+						<button onclick="deleteRecording(${index})">🗑️ Delete</button>
+					</div>
+				</div>
+			`
+                    )
+                    .join('');
+            }
+
+            function formatDuration(ms) {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+
+            function logEvent(message, data = null) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.innerHTML = `<strong>${timestamp}:</strong> ${message}`;
+                if (data) {
+                    logEntry.innerHTML += ` <em>${JSON.stringify(data)}</em>`;
+                }
+                eventLog.appendChild(logEntry);
+                eventLog.scrollTop = eventLog.scrollHeight;
+            }
+
+            async function setupRealtimeProcessor() {
+                try {
+                    const permissionManager = PermissionManager.getInstance();
+                    const stream = permissionManager.getCurrentStream();
+
+                    if (stream) {
+                        realtimeProcessor = new RealtimeAudioProcessor({
+                            enableSilenceDetection: true,
+                            silenceThresholdDb: -50,
+                            enableLevelMonitoring: true,
+                            levelUpdateInterval: 50,
+                        });
+
+                        await realtimeProcessor.initialize(stream);
+                        realtimeProcessor.startProcessing();
+
+                        realtimeProcessor.onAudioData((data) => {
+                            updateVisualizer(data);
+                        });
+
+                        logEvent('Real-time processor started');
+                    }
+                } catch (error) {
+                    logEvent('Failed to setup real-time processor:', error.message);
+                }
+            }
+
+            // Global functions for recording actions
+            window.playRecording = function (index) {
+                const recording = recordings[index];
+                if (recording) {
+                    const audio = new Audio(URL.createObjectURL(recording.blob));
+                    audio.play();
+                    logEvent(`Playing recording ${index + 1}`);
+                }
+            };
+
+            window.downloadRecording = function (index) {
+                const recording = recordings[index];
+                if (recording) {
+                    const url = URL.createObjectURL(recording.blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `recording_${index + 1}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${recording.mimeType.split('/')[1].split(';')[0]}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    logEvent(`Downloaded recording ${index + 1}`);
+                }
+            };
+
+            window.deleteRecording = function (index) {
+                if (confirm(`Delete recording ${index + 1}?`)) {
+                    recordings.splice(index, 1);
+                    updateRecordingsList();
+                    logEvent(`Deleted recording ${index + 1}`);
+                }
+            };
+
+            // Button event handlers
+            startBtn.addEventListener('click', async () => {
+                try {
+                    currentRecording = await recorder.startRecording();
+                    await currentRecording.onStarted;
+                    logEvent('Recording session started');
+                } catch (error) {
+                    handleRecordingError({ data: error });
+                }
+            });
+
+            stopBtn.addEventListener('click', async () => {
+                if (currentRecording) {
+                    try {
+                        const recordingData = await currentRecording.stop();
+                        logEvent('Recording stopped manually');
+                    } catch (error) {
+                        handleRecordingError({ data: error });
+                    }
+                }
+            });
+
+            pauseBtn.addEventListener('click', () => {
+                if (currentRecording) {
+                    try {
+                        currentRecording.pause();
+                    } catch (error) {
+                        handleRecordingError({ data: error });
+                    }
+                }
+            });
+
+            resumeBtn.addEventListener('click', () => {
+                if (currentRecording) {
+                    try {
+                        currentRecording.resume();
+                    } catch (error) {
+                        handleRecordingError({ data: error });
+                    }
+                }
+            });
+
+            testPermissionBtn.addEventListener('click', async () => {
+                try {
+                    const permissionManager = PermissionManager.getInstance();
+                    const result = await permissionManager.testMicrophoneAccess();
+
+                    if (result.granted) {
+                        updateStatus('Microphone permission test passed', false);
+                        logEvent('Permission test successful');
+                    } else {
+                        updateStatus(`Permission test failed: ${result.error?.message}`, true);
+                        logEvent('Permission test failed:', result.error);
+
+                        // Show guidance
+                        const guidance = permissionManager.getPermissionErrorGuidance(result.error);
+                        logEvent('Guidance:', guidance);
+                    }
+                } catch (error) {
+                    updateStatus(`Permission test error: ${error.message}`, true);
+                    logEvent('Permission test error:', error);
+                }
+            });
+
+            clearRecordings.addEventListener('click', () => {
+                if (confirm('Clear all recordings?')) {
+                    recordings = [];
+                    updateRecordingsList();
+                    logEvent('All recordings cleared');
+                }
+            });
+
+            clearLogBtn.addEventListener('click', () => {
+                eventLog.innerHTML = '';
+            });
+
+            // Config change handlers
+            [mimeType, bitrate, maxDuration, echoCancellation, noiseSuppression, autoGainControl, realtimeProcessing].forEach((element) => {
+                element.addEventListener('change', () => {
+                    logEvent('Configuration changed, reinitializing recorder...');
+                    initializeRecorder();
+                });
+            });
+
+            // Initialize on page load
+            document.addEventListener('DOMContentLoaded', () => {
+                initializeRecorder();
+                logEvent('Recording demo initialized');
+            });
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+                if (recorder) {
+                    recorder.dispose();
+                }
+                if (realtimeProcessor) {
+                    realtimeProcessor.dispose();
+                }
+            });
+        </script>
+    </body>
+</html>

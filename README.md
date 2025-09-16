@@ -4,18 +4,29 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
 
-A comprehensive progressive audio streaming library for web browsers that enables real-time playback while downloading, with intelligent caching and advanced audio processing capabilities.
+A comprehensive audio library for web browsers that provides both progressive streaming playback and advanced recording capabilities, with intelligent caching and real-time audio processing.
 
 ## 🚀 Features
 
+### 🎵 Audio Playback
 - **Progressive Streaming**: Start playing audio immediately while downloading using MediaSource Extensions
 - **Intelligent Caching**: Persistent storage using IndexedDB with smart cache management
 - **Silence Trimming**: Automatically remove leading/trailing silence from audio
 - **Cross-Platform**: Support for both standard MediaSource and iOS 17.1+ ManagedMediaSource
 - **Format Detection**: Automatic detection and handling of MP3, WAV, WebM, and OGG formats
+
+### 🎤 Audio Recording
+- **MediaRecorder Integration**: Cross-browser audio recording with format optimization
+- **Permission Management**: Robust microphone permission handling with detailed error guidance
+- **Real-time Processing**: Live audio level monitoring, silence detection, and effects
+- **Multiple Formats**: Support for WebM, MP4, WAV, and other browser-supported formats
+- **Recording Controls**: Start, stop, pause, resume functionality with event-driven API
+
+### 🔧 General Features
 - **Promise-Based API**: Modern async/await support with comprehensive event system
 - **Memory Efficient**: Chunked processing to minimize memory usage
 - **TypeScript Support**: Full type definitions included
+- **Browser Compatibility**: Extensive cross-browser support with Safari optimizations
 
 ## 📦 Installation
 
@@ -25,6 +36,7 @@ npm install audio.libx.js
 
 ## 🎵 Quick Start
 
+### Audio Streaming
 ```typescript
 import { createAudioStreamer } from 'audio.libx.js';
 
@@ -52,6 +64,48 @@ try {
     
 } catch (error) {
     console.error('Streaming failed:', error);
+}
+```
+
+### Audio Recording
+```typescript
+import { createAudioRecorder } from 'audio.libx.js';
+
+// Create recorder with options
+const recorder = createAudioRecorder({
+    mimeType: 'audio/webm;codecs=opus',
+    audioBitsPerSecond: 128000,
+    enableRealtimeProcessing: true
+});
+
+// Set up event listeners
+recorder.on('recordingStarted', (event) => {
+    console.log('Recording started:', event.recordingId);
+});
+
+recorder.on('audioLevel', (event) => {
+    console.log('Audio level:', event.data);
+});
+
+recorder.on('recordingCompleted', (event) => {
+    console.log('Recording completed:', event.data);
+    // event.data contains the recorded audio blob
+});
+
+// Start recording
+try {
+    const recording = await recorder.startRecording();
+    
+    // Wait for recording to start
+    await recording.onStarted;
+    console.log('Recording is active!');
+    
+    // Stop recording after some time or user action
+    const recordedData = await recording.stop();
+    console.log('Recording finished:', recordedData);
+    
+} catch (error) {
+    console.error('Recording failed:', error);
 }
 ```
 
@@ -126,6 +180,205 @@ Clear all cached audio.
 ##### `dispose(): void`
 
 Clean up resources and event listeners.
+
+### AudioRecorder
+
+The main class for audio recording operations.
+
+#### Constructor
+
+```typescript
+const recorder = new AudioRecorder(options?: AudioRecorderOptions);
+```
+
+#### Methods
+
+##### `startRecording(recordingId?: string): Promise<RecordingResult>`
+
+Start recording audio with automatic permission handling.
+
+```typescript
+const recording = await recorder.startRecording();
+await recording.onStarted; // Recording active
+const data = await recording.stop(); // Stop and get data
+```
+
+##### `stopRecording(): Promise<RecordingData>`
+
+Stop current recording and return the recorded data.
+
+```typescript
+const recordedData = await recorder.stopRecording();
+console.log('Duration:', recordedData.duration);
+console.log('Size:', recordedData.blob.size);
+```
+
+##### `pauseRecording(): void`
+
+Pause current recording (if supported by browser).
+
+##### `resumeRecording(): void`
+
+Resume paused recording (if supported by browser).
+
+##### `cancelRecording(): void`
+
+Cancel current recording and discard data.
+
+##### `getState(): RecordingState`
+
+Get current recording state.
+
+```typescript
+const state = recorder.getState();
+console.log('State:', state.state); // 'idle', 'recording', 'paused', etc.
+console.log('Duration:', state.duration);
+console.log('Has permission:', state.hasPermission);
+```
+
+##### `getCapabilities()`
+
+Get recorder capabilities and supported formats.
+
+```typescript
+const caps = recorder.getCapabilities();
+console.log('Supported MIME types:', caps.supportedMimeTypes);
+console.log('Can pause:', caps.canPause);
+```
+
+#### Events
+
+Subscribe to recording events:
+
+```typescript
+recorder.on('permissionRequested', (event) => {
+    console.log('Requesting permission...');
+});
+
+recorder.on('recordingStarted', (event) => {
+    console.log('Recording started:', event.recordingId);
+});
+
+recorder.on('audioLevel', (event) => {
+    console.log('Audio level:', event.data);
+});
+
+recorder.on('durationUpdate', (event) => {
+    console.log('Duration:', event.data, 'ms');
+});
+
+recorder.on('recordingError', (event) => {
+    console.error('Recording error:', event.data);
+});
+```
+
+Available events:
+- `permissionRequested` - Permission request started
+- `permissionGranted` - Permission granted
+- `permissionDenied` - Permission denied
+- `recordingStarted` - Recording started
+- `recordingPaused` - Recording paused
+- `recordingResumed` - Recording resumed
+- `recordingStopped` - Recording stopped
+- `recordingCompleted` - Recording completed with data
+- `recordingCancelled` - Recording cancelled
+- `audioLevel` - Real-time audio level updates
+- `durationUpdate` - Recording duration updates
+- `recordingError` - Error occurred
+
+### PermissionManager
+
+Singleton class for managing microphone permissions.
+
+#### Methods
+
+##### `PermissionManager.getInstance(): PermissionManager`
+
+Get the singleton instance.
+
+##### `requestPermission(constraints?: MediaConstraintsOptions): Promise<PermissionResult>`
+
+Request microphone permission with optional constraints.
+
+```typescript
+const permissionManager = PermissionManager.getInstance();
+const result = await permissionManager.requestPermission({
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true
+});
+
+if (result.granted) {
+    console.log('Permission granted!');
+    // result.stream contains the MediaStream
+} else {
+    console.error('Permission denied:', result.error);
+}
+```
+
+##### `checkPermissionState(): Promise<PermissionState>`
+
+Check current permission state without requesting.
+
+##### `testMicrophoneAccess(): Promise<PermissionResult>`
+
+Test microphone access without keeping the stream.
+
+##### `getPermissionErrorGuidance(error: PermissionError): string[]`
+
+Get user-friendly guidance for permission errors.
+
+##### `getBrowserSpecificGuidance(): string[]`
+
+Get browser-specific setup instructions.
+
+### RealtimeAudioProcessor
+
+Real-time audio processing and effects.
+
+#### Constructor
+
+```typescript
+const processor = new RealtimeAudioProcessor(options?: RealtimeProcessingOptions);
+```
+
+#### Methods
+
+##### `initialize(mediaStream: MediaStream): Promise<void>`
+
+Initialize processor with a media stream.
+
+##### `startProcessing(): void`
+
+Start real-time audio processing.
+
+##### `stopProcessing(): void`
+
+Stop real-time processing.
+
+##### `onAudioData(callback: (data: RealtimeAudioData) => void): void`
+
+Set callback for real-time audio data updates.
+
+```typescript
+processor.onAudioData((data) => {
+    console.log('Audio level:', data.level);
+    console.log('Is silence:', data.isSilence);
+    console.log('Sample rate:', data.sampleRate);
+});
+```
+
+##### `setVolume(volume: number): void`
+
+Adjust volume (0-2, where 1 is normal).
+
+##### `setFilter(type: BiquadFilterType, frequency: number, Q?: number): void`
+
+Apply basic EQ filter.
+
+```typescript
+processor.setFilter('lowpass', 1000, 1);
+```
 
 #### Events
 
