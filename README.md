@@ -22,6 +22,20 @@ A comprehensive audio library for web browsers that provides both progressive st
 - **Multiple Formats**: Support for WebM, MP4, WAV, and other browser-supported formats
 - **Recording Controls**: Start, stop, pause, resume functionality with event-driven API
 
+### 🎵 Playlist Management
+- **Spotify-like Functionality**: Complete playlist management with sequential playback
+- **Playback Controls**: Play, pause, next, previous with automatic track progression
+- **Play Modes**: Sequential, repeat, and repeat-one modes with shuffle support
+- **Event-Driven**: Real-time playlist events and state management
+- **Track Management**: Add, remove, and reorder tracks dynamically
+
+### 🔊 Sound Effects
+- **Key-Based Mapping**: Register sound effects with string, number, or symbol keys
+- **Smart Caching**: Avoid re-downloading with persistent sound effect caching
+- **Concurrent Playback**: Play multiple sound effects simultaneously with limits
+- **Volume Control**: Individual volume control for each sound effect
+- **Preloading**: Optional preloading for instant playback
+
 ### 🔧 General Features
 - **Promise-Based API**: Modern async/await support with comprehensive event system
 - **Memory Efficient**: Chunked processing to minimize memory usage
@@ -107,6 +121,114 @@ try {
 } catch (error) {
     console.error('Recording failed:', error);
 }
+```
+
+### Playlist Management
+```typescript
+import { createPlaylistManager } from 'audio.libx.js';
+
+// Get your audio element
+const audioElement = document.getElementById('audio') as HTMLAudioElement;
+
+// Create playlist manager
+const playlistManager = createPlaylistManager(audioElement, {
+    audioStreamerOptions: {
+        enableCaching: true,
+        enableTrimming: false
+    }
+});
+
+// Load playlist from URLs or track objects
+const tracks = [
+    'https://example.com/track1.mp3',
+    'https://example.com/track2.mp3',
+    {
+        id: 'track3',
+        url: 'https://example.com/track3.mp3',
+        title: 'My Favorite Song',
+        duration: 210
+    }
+];
+
+playlistManager.loadPlaylist(tracks);
+
+// Set up event listeners
+playlistManager.on('trackChanged', (event) => {
+    console.log('Now playing:', event.data.track.title);
+});
+
+playlistManager.on('playlistEnded', () => {
+    console.log('Playlist finished!');
+});
+
+// Control playback
+await playlistManager.initialize();
+await playlistManager.play();          // Play current track
+await playlistManager.next();          // Next track
+await playlistManager.previous();      // Previous track
+playlistManager.pause();               // Pause
+playlistManager.setPlayMode('repeat'); // Set repeat mode
+playlistManager.toggleShuffle();       // Enable/disable shuffle
+
+// Manage tracks
+playlistManager.addTrack('https://example.com/new-track.mp3');
+playlistManager.removeTrack(1);
+playlistManager.clearPlaylist();
+```
+
+### Sound Effects
+```typescript
+import { createSoundEffectsManager } from 'audio.libx.js';
+
+// Create sound effects manager
+const soundEffects = createSoundEffectsManager({
+    enableCaching: true,
+    maxConcurrentSounds: 8,
+    defaultVolume: 1.0
+});
+
+// Define sound effect keys (can use enums for better DX)
+enum SoundEffect {
+    CLICK = 'click',
+    BEEP = 'beep',
+    SUCCESS = 'success',
+    ERROR = 'error'
+}
+
+// Register sound effects
+soundEffects.registerSound(SoundEffect.CLICK, 'https://example.com/click.wav');
+soundEffects.registerSound(SoundEffect.BEEP, 'https://example.com/beep.wav');
+soundEffects.registerSound(SoundEffect.SUCCESS, 'https://example.com/success.wav', {
+    volume: 0.8,
+    preload: true
+});
+
+// Or register multiple at once
+soundEffects.registerSounds([
+    { key: 'coin', url: 'https://example.com/coin.wav' },
+    { key: 'jump', url: 'https://example.com/jump.wav' },
+]);
+
+// Play sound effects
+await soundEffects.initialize();
+await soundEffects.playSound(SoundEffect.CLICK);
+await soundEffects.playSound('coin', { volume: 0.5, loop: false });
+
+// Control volume
+soundEffects.setVolume(SoundEffect.BEEP, 0.3);
+
+// Preload for instant playback
+await soundEffects.preloadAllSounds();
+
+// Event listeners
+soundEffects.on('soundPlayed', (event) => {
+    console.log('Playing:', event.data.key);
+});
+
+soundEffects.on('autoplayBlocked', (event) => {
+    console.log('Autoplay blocked for:', event.data.key);
+    // Handle user interaction requirement
+});
 ```
 
 ## 🔧 API Reference
@@ -380,6 +502,270 @@ Apply basic EQ filter.
 processor.setFilter('lowpass', 1000, 1);
 ```
 
+### PlaylistManager
+
+The main class for playlist management and sequential audio playback.
+
+#### Constructor
+
+```typescript
+const playlistManager = new PlaylistManager(audioElement: HTMLAudioElement, options?: PlaylistOptions);
+```
+
+#### Methods
+
+##### `loadPlaylist(items: (string | PlaylistItem)[]): void`
+
+Load a playlist from an array of URLs or track objects.
+
+```typescript
+playlistManager.loadPlaylist([
+    'https://example.com/track1.mp3',
+    { id: 'track2', url: 'https://example.com/track2.mp3', title: 'Song Title' }
+]);
+```
+
+##### `playTrack(index: number): Promise<void>`
+
+Play a specific track by index.
+
+```typescript
+await playlistManager.playTrack(2); // Play third track
+```
+
+##### `play(): Promise<void>`
+
+Play the current track or first track if none selected.
+
+##### `pause(): void`
+
+Pause the current track.
+
+##### `next(): Promise<void>`
+
+Play the next track based on current play mode.
+
+##### `previous(): Promise<void>`
+
+Play the previous track.
+
+##### `setPlayMode(mode: 'sequential' | 'repeat' | 'repeatOne'): void`
+
+Set the playback mode.
+
+```typescript
+playlistManager.setPlayMode('repeat'); // Loop playlist
+```
+
+##### `toggleShuffle(): void`
+
+Toggle shuffle mode on/off.
+
+##### `addTrack(item: string | PlaylistItem, index?: number): void`
+
+Add a track to the playlist at optional index.
+
+##### `removeTrack(index: number): PlaylistItem | null`
+
+Remove a track from the playlist.
+
+##### `clearPlaylist(): void`
+
+Clear all tracks from the playlist.
+
+##### `getState(): PlaylistState`
+
+Get current playlist state.
+
+```typescript
+const state = playlistManager.getState();
+console.log('Current track:', state.currentTrack?.title);
+console.log('Can play next:', state.canPlayNext);
+```
+
+##### `getPlaylist(): PlaylistItem[]`
+
+Get the current playlist as an array.
+
+##### `getCurrentTrack(): PlaylistItem | null`
+
+Get the currently playing track.
+
+##### `getCurrentIndex(): number`
+
+Get the current track index (-1 if none).
+
+#### Events
+
+Subscribe to playlist events:
+
+```typescript
+playlistManager.on('playlistLoaded', (event) => {
+    console.log('Loaded tracks:', event.data.totalTracks);
+});
+
+playlistManager.on('trackChanged', (event) => {
+    console.log('Now playing:', event.data.track.title);
+});
+
+playlistManager.on('playStart', (event) => {
+    console.log('Playback started:', event.data.track.title);
+});
+
+playlistManager.on('trackEnded', (event) => {
+    console.log('Track ended:', event.data.track.title);
+});
+
+playlistManager.on('playlistEnded', () => {
+    console.log('Playlist finished');
+});
+```
+
+Available events:
+- `initialized` - Manager initialized
+- `playlistLoaded` - Playlist loaded
+- `playlistCleared` - Playlist cleared
+- `trackAdded` - Track added
+- `trackRemoved` - Track removed
+- `trackChanged` - Current track changed
+- `playStart` - Playback started
+- `pause` - Playback paused
+- `trackEnded` - Track ended
+- `playlistEnded` - Playlist ended
+- `playModeChanged` - Play mode changed
+- `shuffleToggled` - Shuffle toggled
+- `stateChange` - State changed
+- `playError` - Playback error
+
+### SoundEffectsManager
+
+The main class for sound effects management with key-based mapping.
+
+#### Constructor
+
+```typescript
+const soundEffects = new SoundEffectsManager(options?: SoundEffectOptions);
+```
+
+#### Methods
+
+##### `registerSound(key: SoundEffectKey, url: string, metadata?: Partial<SoundEffectItem>): void`
+
+Register a sound effect with a key.
+
+```typescript
+soundEffects.registerSound('click', 'https://example.com/click.wav', {
+    volume: 0.8,
+    preload: true,
+    title: 'Button Click'
+});
+```
+
+##### `registerSounds(sounds: Array<{key, url, metadata?}>): void`
+
+Register multiple sound effects at once.
+
+##### `playSound(key: SoundEffectKey, options?): Promise<HTMLAudioElement | null>`
+
+Play a sound effect by key with optional overrides.
+
+```typescript
+await soundEffects.playSound('click', {
+    volume: 0.5,
+    loop: false,
+    onEnded: () => console.log('Sound finished')
+});
+```
+
+##### `stopSound(key: SoundEffectKey): void`
+
+Stop all instances of a specific sound effect.
+
+##### `stopAllSounds(): void`
+
+Stop all currently playing sound effects.
+
+##### `setVolume(key: SoundEffectKey, volume: number): void`
+
+Set the default volume for a sound effect (0-1).
+
+##### `removeSound(key: SoundEffectKey): boolean`
+
+Remove a sound effect from the registry.
+
+##### `clearAllSounds(): void`
+
+Clear all registered sound effects.
+
+##### `preloadSound(key: SoundEffectKey): Promise<void>`
+
+Preload a specific sound effect for instant playback.
+
+##### `preloadAllSounds(): Promise<void>`
+
+Preload all registered sound effects.
+
+##### `getSoundEffect(key: SoundEffectKey): SoundEffectItem | null`
+
+Get sound effect information by key.
+
+##### `getAllSoundEffects(): SoundEffectItem[]`
+
+Get all registered sound effects.
+
+##### `getActiveSounds(): Array<{key, audioElement}>`
+
+Get currently playing sound effects.
+
+##### `getState(): SoundEffectState`
+
+Get current state.
+
+```typescript
+const state = soundEffects.getState();
+console.log('Active sounds:', state.activeSounds);
+console.log('Total registered:', state.totalSounds);
+```
+
+##### `getCapabilities()`
+
+Get manager capabilities.
+
+#### Events
+
+Subscribe to sound effect events:
+
+```typescript
+soundEffects.on('soundRegistered', (event) => {
+    console.log('Registered:', event.data.key);
+});
+
+soundEffects.on('soundPlayed', (event) => {
+    console.log('Playing:', event.data.key);
+});
+
+soundEffects.on('autoplayBlocked', (event) => {
+    console.log('Autoplay blocked for:', event.data.key);
+    // Show user interaction prompt
+});
+```
+
+Available events:
+- `initialized` - Manager initialized
+- `soundRegistered` - Sound registered
+- `soundRemoved` - Sound removed
+- `soundPlayed` - Sound played
+- `soundStopped` - Sound stopped
+- `soundEnded` - Sound ended naturally
+- `allSoundsStopped` - All sounds stopped
+- `allSoundsCleared` - All sounds cleared
+- `soundPreloaded` - Sound preloaded
+- `preloadError` - Preload failed
+- `volumeChanged` - Volume changed
+- `autoplayBlocked` - Autoplay blocked
+- `playError` - Play error
+- `stateChange` - State changed
+
 #### Events
 
 Subscribe to streaming events:
@@ -426,6 +812,20 @@ interface AudioStreamerOptions {
     minSilenceMs?: number;          // Min silence duration in ms (default: 100)
     cacheDbName?: string;           // IndexedDB database name
     cacheStoreName?: string;        // IndexedDB store name
+}
+
+interface PlaylistOptions {
+    audioStreamerOptions?: AudioStreamerOptions; // Options for underlying AudioStreamer
+}
+
+interface SoundEffectOptions {
+    enableCaching?: boolean;         // Enable persistent caching (default: true)
+    cacheDbName?: string;           // IndexedDB database name (default: 'sound-effects-cache')
+    cacheStoreName?: string;        // IndexedDB store name (default: 'sound-effects')
+    maxConcurrentSounds?: number;   // Max concurrent sounds (default: 8)
+    defaultVolume?: number;         // Default volume 0-1 (default: 1.0)
+    preloadSounds?: boolean;        // Preload on registration (default: false)
+    audioStreamerOptions?: AudioStreamerOptions; // Advanced streaming options
 }
 ```
 
@@ -517,7 +917,9 @@ The library automatically handles mobile-specific optimizations:
 
 Check out the `/examples` directory for complete working examples:
 
-- **Basic Usage**: Simple streaming with default options
+- **Comprehensive Demo**: Interactive demo with all features including playlist management and sound effects (`demo.html`)
+- **Basic Usage**: Simple streaming with default options (`basic-usage.html`)
+- **Recording Example**: Complete recording workflow (`recording-example.html`)
 - **Advanced Configuration**: Custom options and event handling
 - **Cache Management**: Working with the cache system
 - **Audio Processing**: Custom audio processing workflows

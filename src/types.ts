@@ -430,3 +430,180 @@ export interface RealtimeAudioData {
     /** Timestamp */
     timestamp: number;
 }
+
+// Playlist Manager Types
+export interface PlaylistItem {
+	/** Unique identifier for the track */
+	id: string;
+
+	/** URL of the audio file */
+	url: string;
+
+	/** Display title of the track */
+	title: string;
+
+	/** Duration in seconds */
+	duration: number;
+
+	/** Additional metadata */
+	metadata: Record<string, any>;
+}
+
+export type PlayMode = 'sequential' | 'repeat' | 'repeatOne';
+
+export interface PlaylistOptions {
+	/** AudioStreamer options */
+	audioStreamerOptions?: AudioStreamerOptions;
+}
+
+export interface PlaylistState {
+	/** Current playlist state */
+	state: 'idle' | 'loading' | 'playing' | 'paused' | 'ended' | 'error';
+
+	/** Current track being played */
+	currentTrack: PlaylistItem | null;
+
+	/** Current track index */
+	currentIndex: number;
+
+	/** Total number of tracks */
+	totalTracks: number;
+
+	/** Current play mode */
+	playMode: PlayMode;
+
+	/** Whether shuffle is enabled */
+	isShuffled: boolean;
+
+	/** Whether playback is possible */
+	canPlay: boolean;
+
+	/** Whether next track is available */
+	canPlayNext: boolean;
+
+	/** Whether previous track is available */
+	canPlayPrevious: boolean;
+
+	/** Error message if state is 'error' */
+	error?: string;
+}
+
+export type PlaylistEventType =
+	| 'initialized'
+	| 'playlistLoaded'
+	| 'playlistCleared'
+	| 'trackAdded'
+	| 'trackRemoved'
+	| 'trackChanged'
+	| 'playStart'
+	| 'pause'
+	| 'trackEnded'
+	| 'playlistEnded'
+	| 'playModeChanged'
+	| 'shuffleToggled'
+	| 'stateChange'
+	| 'playError';
+
+export interface PlaylistEvent {
+	type: PlaylistEventType;
+	data?: any;
+	timestamp: number;
+}
+
+export type PlaylistEventCallback = (event: PlaylistEvent) => void;
+
+// Sound Effects Manager Types
+export type SoundEffectKey = string | number | symbol;
+
+export interface SoundEffectItem {
+	/** Unique key for the sound effect */
+	key: SoundEffectKey;
+
+	/** URL of the sound effect */
+	url: string;
+
+	/** Display title */
+	title: string;
+
+	/** Duration in seconds */
+	duration: number;
+
+	/** Volume level (0-1) */
+	volume: number;
+
+	/** Whether to loop the sound */
+	loop: boolean;
+
+	/** Whether to preload the sound */
+	preload: boolean;
+
+	/** Additional metadata */
+	metadata: Record<string, any>;
+}
+
+export interface SoundEffectOptions {
+	/** Enable persistent caching using IndexedDB */
+	enableCaching?: boolean;
+
+	/** IndexedDB database name for caching */
+	cacheDbName?: string;
+
+	/** IndexedDB store name for sound effects */
+	cacheStoreName?: string;
+
+	/** Maximum number of concurrent sounds */
+	maxConcurrentSounds?: number;
+
+	/** Default volume for all sounds (0-1) */
+	defaultVolume?: number;
+
+	/** Whether to preload sounds on registration */
+	preloadSounds?: boolean;
+
+	/** AudioStreamer options for advanced features */
+	audioStreamerOptions?: AudioStreamerOptions;
+}
+
+export interface SoundEffectState {
+	/** Current state */
+	state: 'idle' | 'loading' | 'playing' | 'error';
+
+	/** Number of loaded sounds */
+	loadedSounds: number;
+
+	/** Total number of registered sounds */
+	totalSounds: number;
+
+	/** Number of currently playing sounds */
+	activeSounds: number;
+
+	/** Whether sounds can be played */
+	canPlay: boolean;
+
+	/** Error message if state is 'error' */
+	error: string | null;
+}
+
+export type SoundEffectEventType =
+	| 'initialized'
+	| 'soundRegistered'
+	| 'soundRemoved'
+	| 'soundPlayed'
+	| 'soundStopped'
+	| 'soundEnded'
+	| 'allSoundsStopped'
+	| 'allSoundsCleared'
+	| 'soundPreloaded'
+	| 'preloadError'
+	| 'volumeChanged'
+	| 'autoplayBlocked'
+	| 'playError'
+	| 'stateChange';
+
+export interface SoundEffectEvent {
+	type: SoundEffectEventType;
+	data?: any;
+	timestamp: number;
+}
+
+export type SoundEffectEventCallback = (event: SoundEffectEvent) => void;

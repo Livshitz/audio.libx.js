@@ -624,6 +624,104 @@
                 opacity: 0.5;
                 margin-bottom: 1rem;
             }
+
+            /* Playlist and Sound Effects Styles */
+            .playlist-container {
+                margin-top: 1rem;
+            }
+
+            .playlist-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.75rem;
+                margin: 0.5rem 0;
+                background: white;
+                border-radius: var(--radius);
+                border: 1px solid var(--border-color);
+                transition: var(--transition);
+            }
+
+            .playlist-item:hover {
+                box-shadow: var(--shadow);
+            }
+
+            .playlist-item.current {
+                background: #e3f2fd;
+                border-color: var(--primary-color);
+            }
+
+            .playlist-item .track-info {
+                flex: 1;
+            }
+
+            .playlist-item .track-title {
+                font-weight: 600;
+                color: var(--text-color);
+                margin-bottom: 0.25rem;
+            }
+
+            .playlist-item .track-url {
+                font-size: 0.8rem;
+                color: var(--text-muted);
+            }
+
+            .playlist-item .track-controls {
+                display: flex;
+                gap: 0.5rem;
+            }
+
+            .sound-effects-container {
+                margin-top: 1rem;
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 0.5rem;
+            }
+
+            .sound-effect-button {
+                padding: 0.75rem;
+                background: var(--secondary-color);
+                color: white;
+                border: none;
+                border-radius: var(--radius);
+                cursor: pointer;
+                font-size: 0.9rem;
+                font-weight: 500;
+                transition: var(--transition);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+            }
+
+            .sound-effect-button:hover {
+                background: #218838;
+                transform: translateY(-1px);
+            }
+
+            .volume-control {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                margin: 1rem 0;
+                padding: 1rem;
+                background: var(--light-bg);
+                border-radius: var(--radius);
+            }
+
+            .volume-slider {
+                flex: 1;
+                max-width: 200px;
+            }
+
+            .btn.active {
+                background: var(--secondary-color);
+                color: white;
+            }
+
+            .btn.active:hover {
+                background: #218838;
+            }
         </style>
     </head>
     <body>
@@ -638,6 +736,8 @@
             <div class="tabs">
                 <button class="tab active" data-tab="overview">📖 Overview</button>
                 <button class="tab" data-tab="streaming">🎵 Streaming</button>
+                <button class="tab" data-tab="playlist">📻 Playlist</button>
+                <button class="tab" data-tab="soundeffects">🔊 Sound Effects</button>
                 <button class="tab" data-tab="recording">🎤 Recording</button>
                 <button class="tab" data-tab="processing">⚙️ Processing</button>
                 <button class="tab" data-tab="caching">💾 Caching</button>
@@ -702,6 +802,22 @@
                                 <div class="feature-title">Permission Management</div>
                                 <div class="feature-description">
                                     Cross-browser permission handling with user-friendly error messages and device enumeration.
+                                </div>
+                            </div>
+
+                            <div class="feature-card">
+                                <div class="feature-icon">📻</div>
+                                <div class="feature-title">Playlist Management</div>
+                                <div class="feature-description">
+                                    Spotify-like playlist functionality with sequential playback, repeat modes, shuffle, and dynamic track management.
+                                </div>
+                            </div>
+
+                            <div class="feature-card">
+                                <div class="feature-icon">🔊</div>
+                                <div class="feature-title">Sound Effects</div>
+                                <div class="feature-description">
+                                    Key-based sound effect mapping with smart caching, concurrent playback, volume control, and preloading capabilities.
                                 </div>
                             </div>
                         </div>
@@ -837,6 +953,122 @@ await recording.onStarted;</code></pre>
                         <h3 class="section-title">📋 Event Log</h3>
                         <div id="streamingEventLog" class="log"></div>
                         <button id="clearStreamingLogBtn" class="btn btn-secondary">Clear Log</button>
+                    </div>
+                </div>
+
+                <!-- Playlist Tab -->
+                <div id="playlist" class="tab-pane">
+                    <div class="section">
+                        <h2 class="section-title">📻 Playlist Management</h2>
+                        <p class="section-description">Manage playlists with Spotify-like functionality including sequential playback, repeat modes, and shuffle.</p>
+
+                        <audio id="playlistAudioPlayer" class="audio-element" controls>Your browser does not support the audio element.</audio>
+
+                        <div class="controls-grid">
+                            <button id="loadPlaylistBtn" class="btn btn-primary">Load Sample Playlist</button>
+                            <button id="addTrackBtn" class="btn btn-secondary">Add Track</button>
+                            <button id="clearPlaylistBtn" class="btn btn-danger">Clear Playlist</button>
+                        </div>
+
+                        <div class="controls-grid">
+                            <button id="playPlaylistBtn" class="btn btn-success" disabled>▶️ Play</button>
+                            <button id="pausePlaylistBtn" class="btn btn-warning" disabled>⏸️ Pause</button>
+                            <button id="prevTrackBtn" class="btn btn-secondary" disabled>⏮️ Previous</button>
+                            <button id="nextTrackBtn" class="btn btn-secondary" disabled>⏭️ Next</button>
+                        </div>
+
+                        <div class="controls-grid">
+                            <button id="modeSequentialBtn" class="btn btn-info active">Sequential</button>
+                            <button id="modeRepeatBtn" class="btn btn-info">Repeat</button>
+                            <button id="modeRepeatOneBtn" class="btn btn-info">Repeat One</button>
+                            <button id="toggleShuffleBtn" class="btn btn-warning">🔀 Shuffle</button>
+                        </div>
+
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">State:</span>
+                                <span id="playlistState" class="status-value">idle</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Current Track:</span>
+                                <span id="currentTrack" class="status-value">None</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Track Index:</span>
+                                <span id="trackIndex" class="status-value">-1</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Total Tracks:</span>
+                                <span id="totalTracks" class="status-value">0</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Play Mode:</span>
+                                <span id="playMode" class="status-value">sequential</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Shuffled:</span>
+                                <span id="isShuffled" class="status-value">false</span>
+                            </div>
+                        </div>
+
+                        <div id="playlistContainer" class="playlist-container">
+                            <p>No tracks loaded. Click "Load Sample Playlist" to get started.</p>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📝 Playlist Events Log</h3>
+                        <div id="playlistLog" class="log"></div>
+                        <button id="clearPlaylistLogBtn" class="btn btn-secondary">Clear Log</button>
+                    </div>
+                </div>
+
+                <!-- Sound Effects Tab -->
+                <div id="soundeffects" class="tab-pane">
+                    <div class="section">
+                        <h2 class="section-title">🔊 Sound Effects Manager</h2>
+                        <p class="section-description">Manage sound effects with key-based mapping, smart caching, and concurrent playback.</p>
+
+                        <div class="controls-grid">
+                            <button id="loadSoundEffectsBtn" class="btn btn-primary">Load Sample Sound Effects</button>
+                            <button id="preloadAllBtn" class="btn btn-secondary">Preload All Sounds</button>
+                            <button id="clearSoundEffectsBtn" class="btn btn-danger">Clear All Sounds</button>
+                        </div>
+
+                        <div class="volume-control">
+                            <label for="masterVolumeSlider">Master Volume:</label>
+                            <input type="range" id="masterVolumeSlider" min="0" max="1" step="0.1" value="1" class="volume-slider">
+                            <span id="volumeDisplay">100%</span>
+                        </div>
+
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">State:</span>
+                                <span id="soundState" class="status-value">idle</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Loaded Sounds:</span>
+                                <span id="loadedSounds" class="status-value">0</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Active Sounds:</span>
+                                <span id="activeSounds" class="status-value">0</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Can Play:</span>
+                                <span id="canPlaySounds" class="status-value">false</span>
+                            </div>
+                        </div>
+
+                        <div id="soundEffectsContainer" class="sound-effects-container">
+                            <p>No sound effects loaded. Click "Load Sample Sound Effects" to get started.</p>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📝 Sound Effects Events Log</h3>
+                        <div id="soundEffectsLog" class="log"></div>
+                        <button id="clearSoundEffectsLogBtn" class="btn btn-secondary">Clear Log</button>
                     </div>
                 </div>
 
@@ -1352,6 +1584,8 @@ await recording.onStarted;</code></pre>
             import {
                 createAudioStreamer,
                 createAudioRecorder,
+                createPlaylistManager,
+                createSoundEffectsManager,
                 AudioProcessor,
                 AudioCache,
                 PermissionManager,
@@ -1363,6 +1597,8 @@ await recording.onStarted;</code></pre>
             let activeTab = 'overview';
             let streamer = null;
             let recorder = null;
+            let playlistManager = null;
+            let soundEffectsManager = null;
             let realtimeProcessor = null;
             let audioProcessor = null;
             let audioCache = null;
@@ -1402,6 +1638,12 @@ await recording.onStarted;</code></pre>
                 switch (tabId) {
                     case 'streaming':
                         initializeStreaming();
+                        break;
+                    case 'playlist':
+                        initializePlaylist();
+                        break;
+                    case 'soundeffects':
+                        initializeSoundEffects();
                         break;
                     case 'recording':
                         initializeRecording();
@@ -2588,12 +2830,378 @@ await recording.onStarted;</code></pre>
                 logEvent('permissionEventLog', 'Permission demo initialized');
             }
 
+            // Playlist Management Tab
+            function initializePlaylist() {
+                if (playlistManager) return; // Already initialized
+
+                const playlistAudioPlayer = document.getElementById('playlistAudioPlayer');
+                playlistManager = createPlaylistManager(playlistAudioPlayer, {
+                    audioStreamerOptions: {
+                        enableCaching: true,
+                        enableTrimming: false
+                    }
+                });
+
+                // Sample tracks data
+                const sampleTracks = [
+                    {
+                        id: 'track1',
+                        url: 'https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav',
+                        title: 'Baby Elephant Walk',
+                        duration: 60
+                    },
+                    {
+                        id: 'track2',
+                        url: 'https://www2.cs.uic.edu/~i101/SoundFiles/CantinaBand60.wav',
+                        title: 'Cantina Band',
+                        duration: 60
+                    },
+                    {
+                        id: 'track3',
+                        url: 'https://www2.cs.uic.edu/~i101/SoundFiles/ImperialMarch60.wav',
+                        title: 'Imperial March',
+                        duration: 60
+                    }
+                ];
+
+                // Event handlers
+                document.getElementById('loadPlaylistBtn').addEventListener('click', async () => {
+                    try {
+                        playlistManager.loadPlaylist(sampleTracks);
+                        updatePlaylistDisplay();
+                        updatePlaylistStatus();
+                        logEvent('playlistLog', '✅ Playlist loaded successfully');
+                    } catch (error) {
+                        logEvent('playlistLog', '❌ Error loading playlist:', error);
+                    }
+                });
+
+                document.getElementById('addTrackBtn').addEventListener('click', () => {
+                    const url = prompt('Enter audio URL:');
+                    if (url) {
+                        const title = prompt('Enter track title:', 'Custom Track');
+                        playlistManager.addTrack({
+                            id: `custom-${Date.now()}`,
+                            url,
+                            title: title || 'Custom Track',
+                            duration: 0
+                        });
+                        updatePlaylistDisplay();
+                        updatePlaylistStatus();
+                        logEvent('playlistLog', `✅ Added track: ${title || 'Custom Track'}`);
+                    }
+                });
+
+                document.getElementById('clearPlaylistBtn').addEventListener('click', () => {
+                    playlistManager.clearPlaylist();
+                    updatePlaylistDisplay();
+                    updatePlaylistStatus();
+                    logEvent('playlistLog', '✅ Playlist cleared');
+                });
+
+                document.getElementById('playPlaylistBtn').addEventListener('click', async () => {
+                    try {
+                        await playlistManager.play();
+                        updatePlaylistStatus();
+                        logEvent('playlistLog', '▶️ Playback started');
+                    } catch (error) {
+                        logEvent('playlistLog', '❌ Playback error:', error);
+                    }
+                });
+
+                document.getElementById('pausePlaylistBtn').addEventListener('click', () => {
+                    playlistManager.pause();
+                    updatePlaylistStatus();
+                    logEvent('playlistLog', '⏸️ Playback paused');
+                });
+
+                document.getElementById('prevTrackBtn').addEventListener('click', async () => {
+                    try {
+                        await playlistManager.previous();
+                        updatePlaylistDisplay();
+                        updatePlaylistStatus();
+                        logEvent('playlistLog', '⏮️ Previous track');
+                    } catch (error) {
+                        logEvent('playlistLog', '❌ Previous track error:', error);
+                    }
+                });
+
+                document.getElementById('nextTrackBtn').addEventListener('click', async () => {
+                    try {
+                        await playlistManager.next();
+                        updatePlaylistDisplay();
+                        updatePlaylistStatus();
+                        logEvent('playlistLog', '⏭️ Next track');
+                    } catch (error) {
+                        logEvent('playlistLog', '❌ Next track error:', error);
+                    }
+                });
+
+                // Play mode handlers
+                document.getElementById('modeSequentialBtn').addEventListener('click', () => {
+                    playlistManager.setPlayMode('sequential');
+                    updateModeButtons('sequential');
+                    updatePlaylistStatus();
+                    logEvent('playlistLog', '🔄 Play mode: Sequential');
+                });
+
+                document.getElementById('modeRepeatBtn').addEventListener('click', () => {
+                    playlistManager.setPlayMode('repeat');
+                    updateModeButtons('repeat');
+                    updatePlaylistStatus();
+                    logEvent('playlistLog', '🔄 Play mode: Repeat');
+                });
+
+                document.getElementById('modeRepeatOneBtn').addEventListener('click', () => {
+                    playlistManager.setPlayMode('repeatOne');
+                    updateModeButtons('repeatOne');
+                    updatePlaylistStatus();
+                    logEvent('playlistLog', '🔄 Play mode: Repeat One');
+                });
+
+                document.getElementById('toggleShuffleBtn').addEventListener('click', () => {
+                    playlistManager.toggleShuffle();
+                    updatePlaylistStatus();
+                    const isShuffled = playlistManager.getState().isShuffled;
+                    document.getElementById('toggleShuffleBtn').classList.toggle('active', isShuffled);
+                    logEvent('playlistLog', `🔀 Shuffle ${isShuffled ? 'enabled' : 'disabled'}`);
+                });
+
+                document.getElementById('clearPlaylistLogBtn').addEventListener('click', () => {
+                    document.getElementById('playlistLog').innerHTML = '';
+                });
+
+                // Event listeners
+                playlistManager.on('trackChanged', (event) => {
+                    updatePlaylistDisplay();
+                    logEvent('playlistLog', `🎵 Now playing: ${event.data.track.title}`);
+                });
+
+                playlistManager.on('playStart', (event) => {
+                    logEvent('playlistLog', `▶️ Playback started: ${event.data.track.title}`);
+                });
+
+                playlistManager.on('trackEnded', (event) => {
+                    logEvent('playlistLog', `⏹️ Track ended: ${event.data.track.title}`);
+                });
+
+                playlistManager.on('playlistEnded', () => {
+                    logEvent('playlistLog', '🏁 Playlist ended');
+                });
+
+                // Helper functions
+                function updatePlaylistDisplay() {
+                    const playlist = playlistManager.getPlaylist();
+                    const state = playlistManager.getState();
+                    const container = document.getElementById('playlistContainer');
+                    
+                    if (playlist.length === 0) {
+                        container.innerHTML = '<p>No tracks loaded. Click "Load Sample Playlist" to get started.</p>';
+                        return;
+                    }
+
+                    container.innerHTML = playlist.map((track, index) => `
+                        <div class="playlist-item ${index === state.currentIndex ? 'current' : ''}">
+                            <div class="track-info">
+                                <div class="track-title">${track.title}</div>
+                                <div class="track-url">${track.url}</div>
+                            </div>
+                            <div class="track-controls">
+                                <button onclick="playTrack(${index})" class="btn btn-sm btn-success">Play</button>
+                                <button onclick="removeTrack(${index})" class="btn btn-sm btn-danger">Remove</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                function updatePlaylistStatus() {
+                    const state = playlistManager.getState();
+                    document.getElementById('playlistState').textContent = state.state;
+                    document.getElementById('currentTrack').textContent = state.currentTrack?.title || 'None';
+                    document.getElementById('trackIndex').textContent = state.currentIndex;
+                    document.getElementById('totalTracks').textContent = state.totalTracks;
+                    document.getElementById('playMode').textContent = state.playMode;
+                    document.getElementById('isShuffled').textContent = state.isShuffled.toString();
+                    
+                    document.getElementById('playPlaylistBtn').disabled = !state.canPlay;
+                    document.getElementById('pausePlaylistBtn').disabled = state.state === 'idle';
+                    document.getElementById('prevTrackBtn').disabled = !state.canPlayPrevious;
+                    document.getElementById('nextTrackBtn').disabled = !state.canPlayNext;
+                }
+
+                function updateModeButtons(activeMode) {
+                    document.querySelectorAll('#playlist .btn-info').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    document.getElementById(`mode${activeMode.charAt(0).toUpperCase() + activeMode.slice(1)}Btn`).classList.add('active');
+                }
+
+                // Global functions for inline event handlers
+                window.playTrack = async (index) => {
+                    try {
+                        await playlistManager.playTrack(index);
+                        updatePlaylistDisplay();
+                        updatePlaylistStatus();
+                        logEvent('playlistLog', `🎵 Playing track ${index + 1}`);
+                    } catch (error) {
+                        logEvent('playlistLog', '❌ Error playing track:', error);
+                    }
+                };
+
+                window.removeTrack = (index) => {
+                    const removedTrack = playlistManager.removeTrack(index);
+                    updatePlaylistDisplay();
+                    updatePlaylistStatus();
+                    logEvent('playlistLog', `🗑️ Removed track: ${removedTrack?.title}`);
+                };
+
+                // Initialize
+                playlistManager.initialize().then(() => {
+                    logEvent('playlistLog', '✅ Playlist manager initialized');
+                }).catch(error => {
+                    logEvent('playlistLog', '❌ Initialization error:', error);
+                });
+            }
+
+            // Sound Effects Management Tab
+            function initializeSoundEffects() {
+                if (soundEffectsManager) return; // Already initialized
+
+                soundEffectsManager = createSoundEffectsManager({
+                    enableCaching: true,
+                    maxConcurrentSounds: 5,
+                    defaultVolume: 1.0,
+                    preloadSounds: false
+                });
+
+                // Sample sound effects data
+                const sampleSoundEffects = [
+                    { key: 'click', url: 'https://www2.cs.uic.edu/~i101/SoundFiles/PinkPanther30.wav', title: 'Click' },
+                    { key: 'beep', url: 'https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav', title: 'Beep' },
+                    { key: 'chime', url: 'https://www2.cs.uic.edu/~i101/SoundFiles/taunt.wav', title: 'Chime' },
+                    { key: 'ding', url: 'https://www2.cs.uic.edu/~i101/SoundFiles/gettysburg10.wav', title: 'Ding' },
+                    { key: 'pop', url: 'https://www2.cs.uic.edu/~i101/SoundFiles/CantinaBand3.wav', title: 'Pop' }
+                ];
+
+                // Event handlers
+                document.getElementById('loadSoundEffectsBtn').addEventListener('click', async () => {
+                    try {
+                        soundEffectsManager.registerSounds(sampleSoundEffects);
+                        updateSoundEffectsDisplay();
+                        updateSoundEffectsStatus();
+                        logEvent('soundEffectsLog', '✅ Sound effects loaded successfully');
+                    } catch (error) {
+                        logEvent('soundEffectsLog', '❌ Error loading sound effects:', error);
+                    }
+                });
+
+                document.getElementById('preloadAllBtn').addEventListener('click', async () => {
+                    try {
+                        await soundEffectsManager.preloadAllSounds();
+                        logEvent('soundEffectsLog', '✅ All sounds preloaded');
+                    } catch (error) {
+                        logEvent('soundEffectsLog', '❌ Preload error:', error);
+                    }
+                });
+
+                document.getElementById('clearSoundEffectsBtn').addEventListener('click', () => {
+                    soundEffectsManager.clearAllSounds();
+                    updateSoundEffectsDisplay();
+                    updateSoundEffectsStatus();
+                    logEvent('soundEffectsLog', '✅ Sound effects cleared');
+                });
+
+                document.getElementById('masterVolumeSlider').addEventListener('input', (e) => {
+                    const volume = parseFloat(e.target.value);
+                    document.getElementById('volumeDisplay').textContent = `${Math.round(volume * 100)}%`;
+                    
+                    // Update volume for all registered sounds
+                    const soundEffects = soundEffectsManager.getAllSoundEffects();
+                    soundEffects.forEach(sound => {
+                        soundEffectsManager.setVolume(sound.key, volume);
+                    });
+                    
+                    logEvent('soundEffectsLog', `🔊 Master volume set to ${Math.round(volume * 100)}%`);
+                });
+
+                document.getElementById('clearSoundEffectsLogBtn').addEventListener('click', () => {
+                    document.getElementById('soundEffectsLog').innerHTML = '';
+                });
+
+                // Event listeners
+                soundEffectsManager.on('soundRegistered', (event) => {
+                    logEvent('soundEffectsLog', `📝 Sound registered: ${event.data.key}`);
+                });
+
+                soundEffectsManager.on('soundPlayed', (event) => {
+                    updateSoundEffectsStatus();
+                    logEvent('soundEffectsLog', `🔊 Sound played: ${event.data.key}`);
+                });
+
+                soundEffectsManager.on('soundEnded', (event) => {
+                    updateSoundEffectsStatus();
+                    logEvent('soundEffectsLog', `⏹️ Sound ended: ${event.data.key}`);
+                });
+
+                soundEffectsManager.on('autoplayBlocked', (event) => {
+                    logEvent('soundEffectsLog', `🚫 Autoplay blocked for: ${event.data.key}`);
+                });
+
+                // Helper functions
+                function updateSoundEffectsDisplay() {
+                    const soundEffects = soundEffectsManager.getAllSoundEffects();
+                    const container = document.getElementById('soundEffectsContainer');
+                    
+                    if (soundEffects.length === 0) {
+                        container.innerHTML = '<p>No sound effects loaded. Click "Load Sample Sound Effects" to get started.</p>';
+                        return;
+                    }
+
+                    container.innerHTML = soundEffects.map(sound => `
+                        <button onclick="playSoundEffect('${sound.key}')" class="sound-effect-button">
+                            🔊 ${sound.title}
+                        </button>
+                    `).join('');
+                }
+
+                function updateSoundEffectsStatus() {
+                    const state = soundEffectsManager.getState();
+                    document.getElementById('soundState').textContent = state.state;
+                    document.getElementById('loadedSounds').textContent = state.loadedSounds;
+                    document.getElementById('activeSounds').textContent = state.activeSounds;
+                    document.getElementById('canPlaySounds').textContent = state.canPlay.toString();
+                }
+
+                // Global function for inline event handlers
+                window.playSoundEffect = async (key) => {
+                    try {
+                        await soundEffectsManager.playSound(key);
+                        updateSoundEffectsStatus();
+                        logEvent('soundEffectsLog', `🔊 Playing sound effect: ${key}`);
+                    } catch (error) {
+                        logEvent('soundEffectsLog', '❌ Error playing sound effect:', error);
+                    }
+                };
+
+                // Initialize
+                soundEffectsManager.initialize().then(() => {
+                    logEvent('soundEffectsLog', '✅ Sound effects manager initialized');
+                }).catch(error => {
+                    logEvent('soundEffectsLog', '❌ Initialization error:', error);
+                });
+            }
+
             // Cleanup on page unload
             window.addEventListener('beforeunload', () => {
                 if (streamer) streamer.dispose();
                 if (recorder) recorder.dispose();
+                if (playlistManager) playlistManager.dispose();
+                if (soundEffectsManager) soundEffectsManager.dispose();
                 if (realtimeProcessor) realtimeProcessor.dispose();
             });
+
+            // Initialize tabs
+            initializeTabs();
         </script>
     </body>
 </html>
