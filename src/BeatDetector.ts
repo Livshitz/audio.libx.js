@@ -1,23 +1,6 @@
 /**
  * BeatDetector - Real-time beat detection for audio playback
- * 
- * Uses energy-based detection with Web Audio API's AnalyserNode to detect beats
- * in audio streams. Focuses on bass frequencies for reliable beat detection.
- * 
- * @warning iOS Safari may have issues with createMediaElementSource() breaking audio playback.
- * See: https://bugs.webkit.org/show_bug.cgi?id=211394
- * 
- * @example
- * ```typescript
- * const beatDetector = new BeatDetector({ sensitivity: 2.0 });
- * await beatDetector.connect(audioElement);
- * 
- * beatDetector.on('beat', (event) => {
- *   console.log('Beat detected!', event.data.strength);
- * });
- * 
- * beatDetector.start();
- * ```
+ * Uses energy-based detection on bass frequencies with statistical thresholding
  */
 
 import {
@@ -26,25 +9,20 @@ import {
 	BeatEvent,
 	BeatDetectorEventType,
 	BeatDetectorEventCallback,
-	BeatDetectorEvent,
-	BeatDetectionError
+	BeatDetectionError,
 } from './types.js';
 
 export class BeatDetector {
-	private _options: Required<BeatDetectorOptions>;
 	private _audioContext: AudioContext | null = null;
-	private _analyser: AnalyserNode | null = null;
-	private _sourceNode: MediaElementAudioSourceNode | null = null;
-	private _audioElement: HTMLAudioElement | null = null;
-	private _frequencyData: Uint8Array<ArrayBuffer> | null = null;
+	private _analyserNode: AnalyserNode | null = null;
+	private _sourceNode: MediaElementAudioSourceNode | MediaStreamAudioSourceNode | null = null;
+	private _options: Required<BeatDetectorOptions>;
+	private _state: BeatDetectorState;
+	private _eventCallbacks: Map<BeatDetectorEventType, BeatDetectorEventCallback[]> = new Map();
 	private _energyHistory: number[] = [];
 	private _lastBeatTime: number = 0;
-	private _beatCount: number = 0;
-	private _isRunning: boolean = false;
 	private _animationFrameId: number | null = null;
-	private _eventCallbacks: Map<BeatDetectorEventType, BeatDetectorEventCallback[]> = new Map();
-	private _avgEnergy: number = 0;
-	private _currentEnergy: number = 0;
+	private _isConnected: boolean = false;
 
 	constructor(options: BeatDetectorOptions = {}) {
 		this._options = {
@@ -55,216 +33,186 @@ export class BeatDetector {
 			energyHistorySize: options.energyHistorySize ?? 43,
 			minEnergyThreshold: options.minEnergyThreshold ?? 0.01,
 			fftSize: options.fftSize ?? 512,
-			smoothingTimeConstant: options.smoothingTimeConstant ?? 0.8
+			smoothingTimeConstant: options.smoothingTimeConstant ?? 0.8,
 		};
 
-		// Validate options
-		if (this._options.sensitivity < 0.5 || this._options.sensitivity > 5.0) {
-			throw new BeatDetectionError('Sensitivity must be between 0.5 and 5.0');
-		}
+		this._state = {
+			isRunning: false,
+			lastBeatTime: null,
+			avgEnergy: 0,
+			currentEnergy: 0,
+			beatCount: 0,
+			config: this._options,
+		};
 	}
 
-	/**
-	 * Connect to an audio element for beat detection
-	 * 
-	 * @param audioElement - The HTML audio element to analyze
-	 * @throws BeatDetectionError if connection fails or Web Audio API is not supported
-	 */
-	public async connect(audioElement: HTMLAudioElement): Promise<void> {
+    /**
+     * Connect to an audio element
+     */
+	public async connectAudioElement(audioElement: HTMLAudioElement): Promise<void> {
 		try {
-			// Check for Web Audio API support
-			if (typeof AudioContext === 'undefined' && typeof (window as any).webkitAudioContext === 'undefined') {
-				throw new BeatDetectionError('Web Audio API is not supported in this browser');
+			if (this._isConnected) {
+				this.disconnect();
 			}
 
-			// Warn about iOS issues
+			// iOS compatibility check
 			if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-				console.warn('BeatDetector: iOS Safari may experience audio playback issues with MediaElementSource');
+				console.warn('Beat detection may not work reliably on iOS due to Safari limitations');
 			}
 
-			this._audioElement = audioElement;
+			this._audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+			this._analyserNode = this._audioContext.createAnalyser();
+			this._analyserNode.fftSize = this._options.fftSize;
+			this._analyserNode.smoothingTimeConstant = this._options.smoothingTimeConstant;
 
-			// Create audio context
-			const AudioContextClass = AudioContext || (window as any).webkitAudioContext;
-			this._audioContext = new AudioContextClass();
-
-			// Create analyser node
-			this._analyser = this._audioContext.createAnalyser();
-			this._analyser.fftSize = this._options.fftSize;
-			this._analyser.smoothingTimeConstant = this._options.smoothingTimeConstant;
-
-			// Create frequency data array
-			this._frequencyData = new Uint8Array(this._analyser.frequencyBinCount);
-
-			// Connect audio element to analyser
 			this._sourceNode = this._audioContext.createMediaElementSource(audioElement);
-			this._sourceNode.connect(this._analyser);
-			this._analyser.connect(this._audioContext.destination);
+			this._sourceNode.connect(this._analyserNode);
+			this._analyserNode.connect(this._audioContext.destination);
 
-			// Resume audio context if suspended
-			if (this._audioContext.state === 'suspended') {
-				await this._audioContext.resume();
-			}
+			this._isConnected = true;
 
+			this._emitEvent('started', undefined);
 		} catch (error) {
-			this.disconnect();
-			throw new BeatDetectionError(
-				'Failed to connect to audio element',
-				error as Error
-			);
+			throw new BeatDetectionError('Failed to connect audio element', error as Error);
 		}
 	}
 
 	/**
-	 * Start beat detection
-	 * 
-	 * @throws BeatDetectionError if not connected to an audio element
+	 * Connect to a media stream
 	 */
+	public async connectMediaStream(stream: MediaStream): Promise<void> {
+		try {
+			if (this._isConnected) {
+				this.disconnect();
+			}
+
+			this._audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+			this._analyserNode = this._audioContext.createAnalyser();
+			this._analyserNode.fftSize = this._options.fftSize;
+			this._analyserNode.smoothingTimeConstant = this._options.smoothingTimeConstant;
+
+			this._sourceNode = this._audioContext.createMediaStreamSource(stream);
+			this._sourceNode.connect(this._analyserNode);
+
+			this._isConnected = true;
+
+			this._emitEvent('started', undefined);
+		} catch (error) {
+			throw new BeatDetectionError('Failed to connect media stream', error as Error);
+		}
+	}
+
+    /**
+     * Start beat detection
+     */
 	public start(): void {
-		if (!this._analyser || !this._audioElement) {
-			throw new BeatDetectionError('Must connect to an audio element before starting');
+		if (!this._isConnected) {
+			throw new BeatDetectionError('No audio source connected. Call connectAudioElement() or connectMediaStream() first.');
 		}
 
-		if (this._isRunning) {
-			return;
-		}
+		if (this._state.isRunning) return;
 
-		this._isRunning = true;
-		this._beatCount = 0;
-		this._lastBeatTime = 0;
+		this._state.isRunning = true;
 		this._energyHistory = [];
+		this._lastBeatTime = 0;
+		this._state.beatCount = 0;
 
-		this._emitEvent('started');
-		this._detectBeats();
+		this._detectLoop();
 	}
 
 	/**
 	 * Stop beat detection
 	 */
 	public stop(): void {
-		if (!this._isRunning) {
-			return;
-		}
+		if (!this._state.isRunning) return;
 
-		this._isRunning = false;
+		this._state.isRunning = false;
 
 		if (this._animationFrameId !== null) {
 			cancelAnimationFrame(this._animationFrameId);
 			this._animationFrameId = null;
 		}
 
-		this._emitEvent('stopped');
+		this._emitEvent('stopped', undefined);
 	}
 
-	/**
-	 * Set sensitivity for beat detection
-	 * 
-	 * @param value - Sensitivity value (0.5-5.0)
-	 */
+    /**
+     * Set sensitivity (0.5-5.0)
+     */
 	public setSensitivity(value: number): void {
-		if (value < 0.5 || value > 5.0) {
-			throw new BeatDetectionError('Sensitivity must be between 0.5 and 5.0');
-		}
-		this._options.sensitivity = value;
+		this._options.sensitivity = Math.max(0.5, Math.min(5.0, value));
+		this._state.config.sensitivity = this._options.sensitivity;
 	}
 
-	/**
-	 * Set cooldown period between beats
-	 * 
-	 * @param ms - Cooldown in milliseconds
-	 */
+    /**
+     * Set cooldown period in milliseconds
+     */
 	public setCooldown(ms: number): void {
-		if (ms < 0) {
-			throw new BeatDetectionError('Cooldown must be positive');
-		}
-		this._options.cooldown = ms;
+		this._options.cooldown = Math.max(0, ms);
+		this._state.config.cooldown = this._options.cooldown;
 	}
 
-	/**
-	 * Set frequency range for beat detection
-	 * 
-	 * @param low - Low frequency range (0-1)
-	 * @param high - High frequency range (0-1)
-	 */
+    /**
+     * Set frequency range for analysis (0-1)
+     */
 	public setFrequencyRange(low: number, high: number): void {
-		if (low < 0 || low > 1 || high < 0 || high > 1 || low >= high) {
-			throw new BeatDetectionError('Invalid frequency range');
-		}
-		this._options.frequencyRangeLow = low;
-		this._options.frequencyRangeHigh = high;
+		this._options.frequencyRangeLow = Math.max(0, Math.min(1, low));
+		this._options.frequencyRangeHigh = Math.max(0, Math.min(1, high));
+		this._state.config.frequencyRangeLow = this._options.frequencyRangeLow;
+		this._state.config.frequencyRangeHigh = this._options.frequencyRangeHigh;
 	}
 
 	/**
 	 * Get current state
 	 */
 	public getState(): BeatDetectorState {
-		return {
-			isRunning: this._isRunning,
-			lastBeatTime: this._lastBeatTime || null,
-			avgEnergy: this._avgEnergy,
-			currentEnergy: this._currentEnergy,
-			beatCount: this._beatCount,
-			config: { ...this._options }
-		};
+		return { ...this._state };
 	}
 
-	/**
-	 * Check if beat detection is running
-	 */
+    /**
+     * Check if detection is running
+     */
 	public isRunning(): boolean {
-		return this._isRunning;
+		return this._state.isRunning;
 	}
 
-	/**
-	 * Disconnect from audio element
-	 */
+    /**
+     * Disconnect from audio source
+     */
 	public disconnect(): void {
 		this.stop();
 
 		if (this._sourceNode) {
-			try {
-				this._sourceNode.disconnect();
-			} catch (e) {
-				// Ignore disconnect errors
-			}
+			this._sourceNode.disconnect();
 			this._sourceNode = null;
 		}
 
-		if (this._analyser) {
-			try {
-				this._analyser.disconnect();
-			} catch (e) {
-				// Ignore disconnect errors
-			}
-			this._analyser = null;
+		if (this._analyserNode) {
+			this._analyserNode.disconnect();
+			this._analyserNode = null;
 		}
 
-		this._audioElement = null;
-		this._frequencyData = null;
-		this._energyHistory = [];
+		this._isConnected = false;
 	}
 
-	/**
-	 * Destroy the beat detector and cleanup resources
-	 */
+    /**
+     * Cleanup and destroy
+     */
 	public destroy(): void {
 		this.disconnect();
 
 		if (this._audioContext) {
-			try {
-				this._audioContext.close();
-			} catch (e) {
-				// Ignore close errors
-			}
+			this._audioContext.close();
 			this._audioContext = null;
 		}
 
 		this._eventCallbacks.clear();
+		this._energyHistory = [];
 	}
 
-	/**
-	 * Subscribe to events
-	 */
+    /**
+     * Register event listener
+     */
 	public on(eventType: BeatDetectorEventType, callback: BeatDetectorEventCallback): void {
 		if (!this._eventCallbacks.has(eventType)) {
 			this._eventCallbacks.set(eventType, []);
@@ -272,114 +220,100 @@ export class BeatDetector {
 		this._eventCallbacks.get(eventType)!.push(callback);
 	}
 
-	/**
-	 * Unsubscribe from events
-	 */
+    /**
+     * Remove event listener
+     */
 	public off(eventType: BeatDetectorEventType, callback: BeatDetectorEventCallback): void {
 		const callbacks = this._eventCallbacks.get(eventType);
 		if (callbacks) {
 			const index = callbacks.indexOf(callback);
-			if (index > -1) {
+			if (index !== -1) {
 				callbacks.splice(index, 1);
 			}
 		}
 	}
 
-	/**
-	 * Main beat detection loop
-	 */
-	private _detectBeats(): void {
-		if (!this._isRunning || !this._analyser || !this._frequencyData) {
-			return;
-		}
+    /**
+     * Beat detection loop
+     */
+	private _detectLoop = (): void => {
+		if (!this._state.isRunning) return;
+
+		this._animationFrameId = requestAnimationFrame(this._detectLoop);
+
+		if (!this._analyserNode) return;
 
 		// Get frequency data
-		this._analyser.getByteFrequencyData(this._frequencyData);
+		const frequencyData = new Uint8Array(this._analyserNode.frequencyBinCount);
+		this._analyserNode.getByteFrequencyData(frequencyData);
 
-		// Calculate instant energy from bass frequencies
-		const bassStart = Math.floor(this._frequencyData.length * this._options.frequencyRangeLow);
-		const bassEnd = Math.floor(this._frequencyData.length * this._options.frequencyRangeHigh);
+		// Calculate instant energy for bass frequencies
+		const bassStart = Math.floor(frequencyData.length * this._options.frequencyRangeLow);
+		const bassEnd = Math.floor(frequencyData.length * this._options.frequencyRangeHigh);
+
 		let instantEnergy = 0;
-
 		for (let i = bassStart; i < bassEnd; i++) {
-			instantEnergy += (this._frequencyData[i] / 255) ** 2;
+			instantEnergy += (frequencyData[i] / 255) ** 2;
 		}
 		instantEnergy /= (bassEnd - bassStart);
 
-		this._currentEnergy = instantEnergy;
+		this._state.currentEnergy = instantEnergy;
 
-		// Add to history
+		// Maintain energy history
 		this._energyHistory.push(instantEnergy);
 		if (this._energyHistory.length > this._options.energyHistorySize) {
 			this._energyHistory.shift();
 		}
 
-		// Need enough history to detect beats
-		if (this._energyHistory.length >= this._options.energyHistorySize) {
-			// Calculate average energy
-			const avgEnergy = this._energyHistory.reduce((sum, e) => sum + e, 0) / this._energyHistory.length;
-			this._avgEnergy = avgEnergy;
+		// Need sufficient history for detection
+		if (this._energyHistory.length < this._options.energyHistorySize) return;
 
-			// Calculate standard deviation
-			const variance = this._energyHistory.reduce((sum, e) => sum + (e - avgEnergy) ** 2, 0) / this._energyHistory.length;
-			const stdDev = Math.sqrt(variance);
+		// Calculate statistical threshold
+		const avgEnergy = this._energyHistory.reduce((a, b) => a + b) / this._energyHistory.length;
+		const variance = this._energyHistory.reduce((sum, e) => sum + (e - avgEnergy) ** 2, 0) / this._energyHistory.length;
+		const stdDev = Math.sqrt(variance);
+		const threshold = avgEnergy + this._options.sensitivity * stdDev;
 
-			// Calculate threshold
-			const threshold = avgEnergy + this._options.sensitivity * stdDev;
+		this._state.avgEnergy = avgEnergy;
 
-			// Check for beat
-			const now = Date.now();
-			const timeSinceLastBeat = now - this._lastBeatTime;
+		// Detect beat
+		const now = performance.now();
+		if (
+			instantEnergy > threshold &&
+			instantEnergy > this._options.minEnergyThreshold &&
+			(now - this._lastBeatTime) > this._options.cooldown
+		) {
+			const beatStrength = (instantEnergy - avgEnergy) / (stdDev + 0.0001);
+			const confidence = Math.min(1, beatStrength / 5); // Normalize to 0-1
 
-			if (
-				instantEnergy > threshold &&
-				instantEnergy > this._options.minEnergyThreshold &&
-				timeSinceLastBeat > this._options.cooldown
-			) {
-				// Beat detected!
-				this._lastBeatTime = now;
-				this._beatCount++;
-
-				// Calculate beat strength and confidence
-				const beatStrength = (instantEnergy - avgEnergy) / (stdDev + 0.0001);
-				const confidence = Math.min(instantEnergy / (threshold + 0.0001), 1.0);
-
-				const beatEvent: BeatEvent = {
-					timestamp: now,
-					strength: beatStrength,
-					energy: instantEnergy,
-					avgEnergy: avgEnergy,
-					confidence: confidence
-				};
-
-				this._emitEvent('beat', beatEvent);
-			}
-		}
-
-		// Continue detection loop
-		this._animationFrameId = requestAnimationFrame(() => this._detectBeats());
-	}
-
-	/**
-	 * Emit an event
-	 */
-	private _emitEvent(type: BeatDetectorEventType, data?: any): void {
-		const callbacks = this._eventCallbacks.get(type);
-		if (callbacks) {
-			const event: BeatDetectorEvent = {
-				type,
-				data,
-				timestamp: Date.now()
+			const beatEvent: BeatEvent = {
+				timestamp: now,
+				strength: beatStrength,
+				energy: instantEnergy,
+				avgEnergy: avgEnergy,
+				confidence: confidence,
 			};
 
-			callbacks.forEach(callback => {
-				try {
-					callback(event);
-				} catch (error) {
-					console.error('BeatDetector event callback error:', error);
-				}
-			});
+			this._lastBeatTime = now;
+			this._state.lastBeatTime = now;
+			this._state.beatCount++;
+
+			this._emitEvent('beat', beatEvent);
+		}
+	};
+
+    /**
+     * Emit event to listeners
+     */
+	private _emitEvent(type: BeatDetectorEventType, data: any): void {
+		const callbacks = this._eventCallbacks.get(type);
+		if (callbacks) {
+			const event = {
+				type,
+				data,
+				timestamp: performance.now(),
+			};
+			callbacks.forEach(callback => callback(event));
 		}
 	}
 }
-
