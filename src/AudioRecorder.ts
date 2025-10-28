@@ -4,6 +4,7 @@
  */
 
 import { PermissionManager } from './PermissionManager.js';
+import { AudioChunkConverter } from './AudioChunkConverter.js';
 import {
     AudioRecorderOptions,
     RecordingState,
@@ -16,6 +17,9 @@ import {
     PermissionError,
     RealtimeProcessingOptions,
     RealtimeAudioData,
+    AudioChunk,
+    AudioChunkCallback,
+    ChunkFormat,
 } from './types.js';
 
 export class AudioRecorder {
@@ -34,6 +38,9 @@ export class AudioRecorder {
     private _levelTimer: number | null = null;
     private _isInitialized: boolean = false;
     private _realtimeProcessing: RealtimeProcessingOptions | null = null;
+    private _chunkCallback: AudioChunkCallback | null = null;
+    private _audioWorkletNode: AudioWorkletNode | null = null;
+    private _chunkRecordingStartTime: number = 0;
 
     constructor(options: AudioRecorderOptions = {}) {
         this._options = {
@@ -45,6 +52,11 @@ export class AudioRecorder {
             maxDuration: options.maxDuration ?? 300000, // 5 minutes default
             enableRealtimeProcessing: options.enableRealtimeProcessing ?? false,
             silenceThresholdDb: options.silenceThresholdDb ?? -50,
+            enableRealtimeChunks: options.enableRealtimeChunks ?? false,
+            chunkInterval: options.chunkInterval ?? 500,
+            chunkFormat: options.chunkFormat ?? 'wav',
+            chunkSampleRate: options.chunkSampleRate ?? 16000,
+            chunkChannels: options.chunkChannels ?? 1,
         };
 
         this._permissionManager = PermissionManager.getInstance();
@@ -126,6 +138,11 @@ export class AudioRecorder {
             // Set up real-time processing if enabled
             if (this._options.enableRealtimeProcessing) {
                 await this._setupRealtimeProcessing();
+            }
+
+            // Set up real-time chunk streaming if enabled
+            if (this._options.enableRealtimeChunks && this._chunkCallback) {
+                await this._setupChunkStreaming();
             }
 
             // Create MediaRecorder
@@ -398,6 +415,229 @@ export class AudioRecorder {
         }
     }
 
+    private async _setupChunkStreaming(): Promise<void> {
+        if (!this._mediaStream || !this._chunkCallback) return;
+
+        try {
+            // Create AudioContext if not exists
+            if (!this._audioContext) {
+                this._audioContext = new AudioContext();
+            }
+
+            // Resume AudioContext if suspended
+            if (this._audioContext.state === 'suspended') {
+                await this._audioContext.resume();
+            }
+
+            // Try to use AudioWorklet for better performance
+            if (this._audioContext.audioWorklet) {
+                try {
+                    // Create worklet blob URL
+                    const workletCode = this._getWorkletCode();
+                    const blob = new Blob([workletCode], { type: 'application/javascript' });
+                    const workletUrl = URL.createObjectURL(blob);
+
+                    await this._audioContext.audioWorklet.addModule(workletUrl);
+
+                    // Create worklet node
+                    this._audioWorkletNode = new AudioWorkletNode(this._audioContext, 'audio-chunk-processor', {
+                        processorOptions: {
+                            chunkInterval: this._options.chunkInterval,
+                            targetSampleRate: this._options.chunkSampleRate,
+                            targetChannels: this._options.chunkChannels,
+                        },
+                    });
+
+                    // Handle messages from worklet
+                    this._audioWorkletNode.port.onmessage = (event) => {
+                        if (event.data.type === 'chunk') {
+                            this._handleAudioChunk(event.data.audioData, event.data.sampleRate, event.data.channelCount, event.data.timestamp);
+                        }
+                    };
+
+                    // Connect media stream to worklet
+                    const source = this._audioContext.createMediaStreamSource(this._mediaStream);
+                    source.connect(this._audioWorkletNode);
+                    this._audioWorkletNode.connect(this._audioContext.destination);
+
+                    this._chunkRecordingStartTime = Date.now();
+
+                    URL.revokeObjectURL(workletUrl);
+                } catch (workletError) {
+                    console.warn('AudioWorklet setup failed, falling back to ScriptProcessor:', workletError);
+                    this._setupScriptProcessorChunking();
+                }
+            } else {
+                // Fallback to ScriptProcessorNode
+                this._setupScriptProcessorChunking();
+            }
+        } catch (error) {
+            console.warn('Failed to setup chunk streaming:', error);
+        }
+    }
+
+    private _setupScriptProcessorChunking(): void {
+        if (!this._audioContext || !this._mediaStream) return;
+
+        // ScriptProcessorNode fallback (deprecated but still works)
+        const bufferSize = 4096;
+        const scriptNode = this._audioContext.createScriptProcessor(bufferSize, 1, 1);
+
+        let chunkBuffer: Float32Array[] = [];
+        let lastChunkTime = Date.now();
+
+        scriptNode.onaudioprocess = (event) => {
+            const inputData = event.inputBuffer.getChannelData(0);
+            chunkBuffer.push(new Float32Array(inputData));
+
+            const now = Date.now();
+            if (now - lastChunkTime >= this._options.chunkInterval) {
+                // Concatenate buffer
+                const totalLength = chunkBuffer.reduce((sum, arr) => sum + arr.length, 0);
+                const combined = new Float32Array(totalLength);
+                let offset = 0;
+                for (const chunk of chunkBuffer) {
+                    combined.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                this._handleAudioChunk(combined, this._audioContext!.sampleRate, 1, now - this._chunkRecordingStartTime);
+
+                chunkBuffer = [];
+                lastChunkTime = now;
+            }
+        };
+
+        const source = this._audioContext.createMediaStreamSource(this._mediaStream);
+        source.connect(scriptNode);
+        scriptNode.connect(this._audioContext.destination);
+
+        this._chunkRecordingStartTime = Date.now();
+    }
+
+    private _handleAudioChunk(audioData: Float32Array, sampleRate: number, channelCount: number, timestamp: number): void {
+        if (!this._chunkCallback) return;
+
+        try {
+            // Resample if needed
+            let processedData = audioData;
+            if (sampleRate !== this._options.chunkSampleRate) {
+                processedData = AudioChunkConverter.resample(audioData, sampleRate, this._options.chunkSampleRate, channelCount);
+            }
+
+            // Convert channels if needed
+            if (channelCount !== this._options.chunkChannels) {
+                if (this._options.chunkChannels === 1 && channelCount === 2) {
+                    processedData = AudioChunkConverter.stereoToMono(processedData);
+                } else if (this._options.chunkChannels === 2 && channelCount === 1) {
+                    processedData = AudioChunkConverter.monoToStereo(processedData);
+                }
+            }
+
+            // Convert to requested format
+            const chunk = AudioChunkConverter.convertToFormat(
+                processedData,
+                this._options.chunkFormat,
+                this._options.chunkSampleRate,
+                this._options.chunkChannels,
+                timestamp
+            );
+
+            // Call user callback
+            this._chunkCallback(chunk);
+        } catch (error) {
+            console.error('Error processing audio chunk:', error);
+        }
+    }
+
+    private _getWorkletCode(): string {
+        // Inline worklet code to avoid external file dependency
+        return `
+class AudioChunkProcessor extends AudioWorkletProcessor {
+    constructor(options) {
+        super();
+        const params = options.processorOptions || {};
+        this.chunkInterval = params.chunkInterval || 500;
+        this.targetSampleRate = params.targetSampleRate || sampleRate;
+        this.targetChannels = params.targetChannels || 1;
+        this.bufferSize = Math.ceil((this.chunkInterval / 1000) * sampleRate);
+        this.buffer = [];
+        this.lastChunkTime = currentTime;
+        this.recordingStartTime = currentTime;
+        
+        for (let i = 0; i < this.targetChannels; i++) {
+            this.buffer.push([]);
+        }
+    }
+
+    process(inputs, outputs, parameters) {
+        const input = inputs[0];
+        if (!input || input.length === 0) {
+            return true;
+        }
+
+        const currentChunkTime = currentTime - this.lastChunkTime;
+        const shouldSendChunk = currentChunkTime >= this.chunkInterval / 1000;
+
+        if (shouldSendChunk) {
+            this.sendChunk();
+            this.lastChunkTime = currentTime;
+        }
+
+        const inputChannels = input.length;
+        const frameCount = input[0].length;
+
+        for (let frame = 0; frame < frameCount; frame++) {
+            for (let channel = 0; channel < this.targetChannels; channel++) {
+                let sample = 0;
+                if (this.targetChannels === 1 && inputChannels > 1) {
+                    for (let inputChannel = 0; inputChannel < inputChannels; inputChannel++) {
+                        sample += input[inputChannel][frame];
+                    }
+                    sample /= inputChannels;
+                } else if (channel < inputChannels) {
+                    sample = input[channel][frame];
+                }
+                this.buffer[channel].push(sample);
+            }
+        }
+
+        return true;
+    }
+
+    sendChunk() {
+        if (this.buffer[0].length === 0) return;
+
+        const samplesPerChannel = this.buffer[0].length;
+        const totalSamples = samplesPerChannel * this.targetChannels;
+        const interleavedData = new Float32Array(totalSamples);
+
+        for (let i = 0; i < samplesPerChannel; i++) {
+            for (let channel = 0; channel < this.targetChannels; channel++) {
+                interleavedData[i * this.targetChannels + channel] = this.buffer[channel][i];
+            }
+        }
+
+        const timestamp = (currentTime - this.recordingStartTime) * 1000;
+
+        this.port.postMessage({
+            type: 'chunk',
+            audioData: interleavedData,
+            sampleRate: sampleRate,
+            channelCount: this.targetChannels,
+            timestamp: timestamp
+        });
+
+        for (let i = 0; i < this.targetChannels; i++) {
+            this.buffer[i] = [];
+        }
+    }
+}
+
+registerProcessor('audio-chunk-processor', AudioChunkProcessor);
+`;
+    }
+
     private _startDurationTimer(recordingId: string): void {
         this._durationTimer = window.setInterval(() => {
             if (this._state.state === 'recording') {
@@ -514,6 +754,12 @@ export class AudioRecorder {
             this._mediaStream = null;
         }
 
+        // Disconnect worklet node
+        if (this._audioWorkletNode) {
+            this._audioWorkletNode.disconnect();
+            this._audioWorkletNode = null;
+        }
+
         // Close audio context
         if (this._audioContext && this._audioContext.state !== 'closed') {
             this._audioContext.close();
@@ -524,6 +770,7 @@ export class AudioRecorder {
         this._mediaRecorder = null;
         this._analyserNode = null;
         this._recordedChunks = [];
+        this._chunkCallback = null;
 
         // Reset state
         this._state.duration = 0;
@@ -616,6 +863,13 @@ export class AudioRecorder {
                 callbacks.splice(index, 1);
             }
         }
+    }
+
+    /**
+     * Set callback for real-time audio chunks
+     */
+    public onAudioChunk(callback: AudioChunkCallback): void {
+        this._chunkCallback = callback;
     }
 
     /**

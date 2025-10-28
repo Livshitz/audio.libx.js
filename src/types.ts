@@ -43,23 +43,32 @@ export interface StreamResult {
 }
 
 export interface AudioCacheEntry {
-	/** Unique identifier for the audio */
-	id: string;
+    /** Unique identifier for the audio */
+    id: string;
 
-	/** Audio data as array of Uint8Array chunks */
-	chunks: Uint8Array[];
+    /** Audio data as array of Uint8Array chunks */
+    chunks: Uint8Array[];
 
-	/** MIME type of the audio */
-	mimeType: string;
+    /** MIME type of the audio */
+    mimeType: string;
 
-	/** Timestamp when cached */
-	cachedAt: number;
+    /** Timestamp when cached */
+    cachedAt: number;
 
-	/** Original size in bytes */
-	originalSize: number;
+    /** Original size in bytes */
+    originalSize: number;
 
-	/** Whether audio has been processed (trimmed) */
-	processed?: boolean;
+    /** Whether audio has been processed (trimmed) */
+    processed?: boolean;
+
+    /** Tags for categorization and filtering */
+    tags?: string[];
+
+    /** Custom metadata */
+    customData?: Record<string, any>;
+
+    /** Number of times this entry has been accessed */
+    accessCount?: number;
 }
 
 export interface AudioProcessingResult {
@@ -153,20 +162,40 @@ export interface ChunkAppendOptions {
 }
 
 export interface CacheStats {
-	/** Total number of cached entries */
-	entryCount: number;
+    /** Total number of cached entries */
+    entryCount: number;
 
-	/** Total cache size in bytes */
-	totalSize: number;
+    /** Total cache size in bytes */
+    totalSize: number;
 
-	/** Available storage quota in bytes */
-	availableQuota: number;
+    /** Available storage quota in bytes */
+    availableQuota: number;
 
-	/** Used storage quota in bytes */
-	usedQuota: number;
+    /** Used storage quota in bytes */
+    usedQuota: number;
 
-	/** Cache hit ratio (0-1) */
-	hitRatio: number;
+    /** Cache hit ratio (0-1) */
+    hitRatio: number;
+
+    /** Statistics by tag */
+    byTag?: Record<string, { count: number; size: number }>;
+}
+
+export interface CacheCleanupOptions {
+    /** Maximum age in milliseconds */
+    maxAge?: number;
+
+    /** Maximum number of entries to keep */
+    maxEntries?: number;
+
+    /** Minimum access count to keep */
+    minAccessCount?: number;
+
+    /** Only cleanup entries with these tags */
+    tags?: string[];
+
+    /** Exclude entries with these tags from cleanup */
+    excludeTags?: string[];
 }
 
 // Error types
@@ -237,6 +266,21 @@ export interface AudioRecorderOptions {
 
     /** Silence threshold for real-time detection (in dB) */
     silenceThresholdDb?: number;
+
+    /** Enable real-time audio chunk streaming */
+    enableRealtimeChunks?: boolean;
+
+    /** Interval between chunks in milliseconds (default: 500) */
+    chunkInterval?: number;
+
+    /** Format for audio chunks (default: 'wav') */
+    chunkFormat?: ChunkFormat;
+
+    /** Target sample rate for chunks (default: 16000) */
+    chunkSampleRate?: number;
+
+    /** Number of channels for chunks (default: 1) */
+    chunkChannels?: number;
 }
 
 export interface RecordingState {
@@ -431,83 +475,108 @@ export interface RealtimeAudioData {
     timestamp: number;
 }
 
+// Real-time chunk streaming types
+export type ChunkFormat = 'raw' | 'pcm' | 'wav' | 'webm';
+
+export interface AudioChunk {
+    /** Audio data in requested format */
+    data: ArrayBuffer;
+
+    /** Format of the audio data */
+    format: ChunkFormat;
+
+    /** Sample rate of the audio */
+    sampleRate: number;
+
+    /** Number of channels */
+    channelCount: number;
+
+    /** Timestamp in milliseconds since recording start */
+    timestamp: number;
+
+    /** Duration of this chunk in milliseconds */
+    duration: number;
+}
+
+export type AudioChunkCallback = (chunk: AudioChunk) => void;
+
 // Playlist Manager Types
 export interface PlaylistItem {
-	/** Unique identifier for the track */
-	id: string;
+    /** Unique identifier for the track */
+    id: string;
 
-	/** URL of the audio file */
-	url: string;
+    /** URL of the audio file */
+    url: string;
 
-	/** Display title of the track */
-	title: string;
+    /** Display title of the track */
+    title: string;
 
-	/** Duration in seconds */
-	duration: number;
+    /** Duration in seconds */
+    duration: number;
 
-	/** Additional metadata */
-	metadata: Record<string, any>;
+    /** Additional metadata */
+    metadata: Record<string, any>;
 }
 
 export type PlayMode = 'sequential' | 'repeat' | 'repeatOne';
 
 export interface PlaylistOptions {
-	/** AudioStreamer options */
-	audioStreamerOptions?: AudioStreamerOptions;
+    /** AudioStreamer options */
+    audioStreamerOptions?: AudioStreamerOptions;
 }
 
 export interface PlaylistState {
-	/** Current playlist state */
-	state: 'idle' | 'loading' | 'playing' | 'paused' | 'ended' | 'error';
+    /** Current playlist state */
+    state: 'idle' | 'loading' | 'playing' | 'paused' | 'ended' | 'error';
 
-	/** Current track being played */
-	currentTrack: PlaylistItem | null;
+    /** Current track being played */
+    currentTrack: PlaylistItem | null;
 
-	/** Current track index */
-	currentIndex: number;
+    /** Current track index */
+    currentIndex: number;
 
-	/** Total number of tracks */
-	totalTracks: number;
+    /** Total number of tracks */
+    totalTracks: number;
 
-	/** Current play mode */
-	playMode: PlayMode;
+    /** Current play mode */
+    playMode: PlayMode;
 
-	/** Whether shuffle is enabled */
-	isShuffled: boolean;
+    /** Whether shuffle is enabled */
+    isShuffled: boolean;
 
-	/** Whether playback is possible */
-	canPlay: boolean;
+    /** Whether playback is possible */
+    canPlay: boolean;
 
-	/** Whether next track is available */
-	canPlayNext: boolean;
+    /** Whether next track is available */
+    canPlayNext: boolean;
 
-	/** Whether previous track is available */
-	canPlayPrevious: boolean;
+    /** Whether previous track is available */
+    canPlayPrevious: boolean;
 
-	/** Error message if state is 'error' */
-	error?: string;
+    /** Error message if state is 'error' */
+    error?: string;
 }
 
 export type PlaylistEventType =
-	| 'initialized'
-	| 'playlistLoaded'
-	| 'playlistCleared'
-	| 'trackAdded'
-	| 'trackRemoved'
-	| 'trackChanged'
-	| 'playStart'
-	| 'pause'
-	| 'trackEnded'
-	| 'playlistEnded'
-	| 'playModeChanged'
-	| 'shuffleToggled'
-	| 'stateChange'
-	| 'playError';
+    | 'initialized'
+    | 'playlistLoaded'
+    | 'playlistCleared'
+    | 'trackAdded'
+    | 'trackRemoved'
+    | 'trackChanged'
+    | 'playStart'
+    | 'pause'
+    | 'trackEnded'
+    | 'playlistEnded'
+    | 'playModeChanged'
+    | 'shuffleToggled'
+    | 'stateChange'
+    | 'playError';
 
 export interface PlaylistEvent {
-	type: PlaylistEventType;
-	data?: any;
-	timestamp: number;
+    type: PlaylistEventType;
+    data?: any;
+    timestamp: number;
 }
 
 export type PlaylistEventCallback = (event: PlaylistEvent) => void;
@@ -516,94 +585,125 @@ export type PlaylistEventCallback = (event: PlaylistEvent) => void;
 export type SoundEffectKey = string | number | symbol;
 
 export interface SoundEffectItem {
-	/** Unique key for the sound effect */
-	key: SoundEffectKey;
+    /** Unique key for the sound effect */
+    key: SoundEffectKey;
 
-	/** URL of the sound effect */
-	url: string;
+    /** URL of the sound effect */
+    url: string;
 
-	/** Display title */
-	title: string;
+    /** Display title */
+    title: string;
 
-	/** Duration in seconds */
-	duration: number;
+    /** Duration in seconds */
+    duration: number;
 
-	/** Volume level (0-1) */
-	volume: number;
+    /** Volume level (0-1) */
+    volume: number;
 
-	/** Whether to loop the sound */
-	loop: boolean;
+    /** Whether to loop the sound */
+    loop: boolean;
 
-	/** Whether to preload the sound */
-	preload: boolean;
+    /** Whether to preload the sound */
+    preload: boolean;
 
-	/** Additional metadata */
-	metadata: Record<string, any>;
+    /** Additional metadata */
+    metadata: Record<string, any>;
 }
 
 export interface SoundEffectOptions {
-	/** Enable persistent caching using IndexedDB */
-	enableCaching?: boolean;
+    /** Enable persistent caching using IndexedDB */
+    enableCaching?: boolean;
 
-	/** IndexedDB database name for caching */
-	cacheDbName?: string;
+    /** IndexedDB database name for caching */
+    cacheDbName?: string;
 
-	/** IndexedDB store name for sound effects */
-	cacheStoreName?: string;
+    /** IndexedDB store name for sound effects */
+    cacheStoreName?: string;
 
-	/** Maximum number of concurrent sounds */
-	maxConcurrentSounds?: number;
+    /** Maximum number of concurrent sounds */
+    maxConcurrentSounds?: number;
 
-	/** Default volume for all sounds (0-1) */
-	defaultVolume?: number;
+    /** Default volume for all sounds (0-1) */
+    defaultVolume?: number;
 
-	/** Whether to preload sounds on registration */
-	preloadSounds?: boolean;
+    /** Whether to preload sounds on registration */
+    preloadSounds?: boolean;
 
-	/** AudioStreamer options for advanced features */
-	audioStreamerOptions?: AudioStreamerOptions;
+    /** AudioStreamer options for advanced features */
+    audioStreamerOptions?: AudioStreamerOptions;
+
+    /** Optional AudioContextManager for better mobile support */
+    useAudioContext?: boolean;
 }
 
 export interface SoundEffectState {
-	/** Current state */
-	state: 'idle' | 'loading' | 'playing' | 'error';
+    /** Current state */
+    state: 'idle' | 'loading' | 'playing' | 'error';
 
-	/** Number of loaded sounds */
-	loadedSounds: number;
+    /** Number of loaded sounds */
+    loadedSounds: number;
 
-	/** Total number of registered sounds */
-	totalSounds: number;
+    /** Total number of registered sounds */
+    totalSounds: number;
 
-	/** Number of currently playing sounds */
-	activeSounds: number;
+    /** Number of currently playing sounds */
+    activeSounds: number;
 
-	/** Whether sounds can be played */
-	canPlay: boolean;
+    /** Whether sounds can be played */
+    canPlay: boolean;
 
-	/** Error message if state is 'error' */
-	error: string | null;
+    /** Error message if state is 'error' */
+    error: string | null;
 }
 
 export type SoundEffectEventType =
-	| 'initialized'
-	| 'soundRegistered'
-	| 'soundRemoved'
-	| 'soundPlayed'
-	| 'soundStopped'
-	| 'soundEnded'
-	| 'allSoundsStopped'
-	| 'allSoundsCleared'
-	| 'soundPreloaded'
-	| 'preloadError'
-	| 'volumeChanged'
-	| 'autoplayBlocked'
-	| 'playError'
-	| 'stateChange';
+    | 'initialized'
+    | 'soundRegistered'
+    | 'soundRemoved'
+    | 'soundPlayed'
+    | 'soundStopped'
+    | 'soundEnded'
+    | 'allSoundsStopped'
+    | 'allSoundsCleared'
+    | 'soundPreloaded'
+    | 'preloadError'
+    | 'volumeChanged'
+    | 'autoplayBlocked'
+    | 'playError'
+    | 'stateChange';
 
 export interface SoundEffectEvent {
-	type: SoundEffectEventType;
-	data?: any;
-	timestamp: number;
+    type: SoundEffectEventType;
+    data?: any;
+    timestamp: number;
 }
 
 export type SoundEffectEventCallback = (event: SoundEffectEvent) => void;
+
+// AudioContextManager Types
+export type PlatformType = 'ios' | 'android' | 'desktop' | 'safari';
+
+export interface AudioContextManagerState {
+    /** Current platform type */
+    platform: PlatformType;
+
+    /** Whether audio context is locked (needs user gesture) */
+    isLocked: boolean;
+
+    /** Audio context state */
+    contextState: 'suspended' | 'running' | 'closed' | 'interrupted';
+
+    /** Whether auto-unlock is registered */
+    autoUnlockRegistered: boolean;
+}
+
+export interface AudioContextManagerOptions {
+    /** Sample rate for the audio context */
+    sampleRate?: number;
+
+    /** Latency hint for the audio context */
+    latencyHint?: AudioContextLatencyCategory;
+
+    /** Whether to automatically try to unlock on first user gesture */
+    autoUnlock?: boolean;
+}

@@ -19,6 +19,7 @@ A comprehensive audio library for web browsers that provides both progressive st
 - **MediaRecorder Integration**: Cross-browser audio recording with format optimization
 - **Permission Management**: Robust microphone permission handling with detailed error guidance
 - **Real-time Processing**: Live audio level monitoring, silence detection, and effects
+- **Real-time Chunk Streaming**: Stream audio chunks during recording for STT services (WAV/PCM/WebM formats)
 - **Multiple Formats**: Support for WebM, MP4, WAV, and other browser-supported formats
 - **Recording Controls**: Start, stop, pause, resume functionality with event-driven API
 
@@ -41,6 +42,8 @@ A comprehensive audio library for web browsers that provides both progressive st
 - **Memory Efficient**: Chunked processing to minimize memory usage
 - **TypeScript Support**: Full type definitions included
 - **Browser Compatibility**: Extensive cross-browser support with Safari optimizations
+- **Audio Context Management**: Centralized audio context handling with mobile unlock detection
+- **Enhanced Caching**: Tag-based cache organization with advanced cleanup strategies
 
 ## 📦 Installation
 
@@ -229,6 +232,132 @@ soundEffects.on('autoplayBlocked', (event) => {
     console.log('Autoplay blocked for:', event.data.key);
     // Handle user interaction requirement
 });
+```
+
+### Real-time Audio Chunk Streaming
+```typescript
+import { createAudioRecorder } from 'audio.libx.js';
+
+// Create recorder with real-time chunk streaming
+const recorder = createAudioRecorder({
+    enableRealtimeChunks: true,
+    chunkInterval: 500,        // Send chunks every 500ms
+    chunkFormat: 'wav',         // Format: 'raw', 'pcm', 'wav', or 'webm'
+    chunkSampleRate: 16000,     // Target sample rate (ideal for STT)
+    chunkChannels: 1            // Mono audio
+});
+
+// Set up chunk callback for real-time processing
+recorder.onAudioChunk((chunk) => {
+    console.log('Received chunk:', {
+        format: chunk.format,
+        sampleRate: chunk.sampleRate,
+        size: chunk.data.byteLength,
+        timestamp: chunk.timestamp,
+        duration: chunk.duration
+    });
+    
+    // Send to speech-to-text service
+    websocket.send(chunk.data);
+});
+
+// Start recording
+const recording = await recorder.startRecording();
+await recording.onStarted;
+
+// Chunks will be sent automatically via the callback
+// Stop when done
+const finalRecording = await recording.stop();
+```
+
+### Audio Context Management
+```typescript
+import { createAudioContextManager } from 'audio.libx.js';
+
+// Create audio context manager
+const contextManager = createAudioContextManager({
+    sampleRate: 44100,
+    latencyHint: 'interactive',
+    autoUnlock: true  // Automatically unlock on first user gesture
+});
+
+// Check if unlock is needed (mobile platforms)
+if (contextManager.needsUnlock()) {
+    console.log('Audio needs user interaction to unlock');
+    
+    // Get platform-specific guidance
+    const guidance = contextManager.getPlatformGuidance();
+    guidance.forEach(msg => console.log(msg));
+}
+
+// Manually unlock on user interaction
+button.addEventListener('click', async () => {
+    const unlocked = await contextManager.ensureUnlocked();
+    if (unlocked) {
+        console.log('Audio context unlocked and ready!');
+    }
+});
+
+// Or register auto-unlock
+contextManager.registerAutoUnlock();
+
+// Get current state
+const state = contextManager.getState();
+console.log('Platform:', state.platform);        // 'ios', 'android', 'desktop', 'safari'
+console.log('Is locked:', state.isLocked);
+console.log('Context state:', state.contextState);
+
+// Get the audio context for use
+const audioContext = contextManager.getContext();
+
+// Cleanup when done
+await contextManager.dispose();
+```
+
+### Enhanced Caching with Tags and Metadata
+```typescript
+import { AudioCache } from 'audio.libx.js';
+
+const cache = new AudioCache('my-app-cache', 'audio-store');
+await cache.initialize();
+
+// Store with tags and custom metadata
+await cache.set('audio-123', audioChunks, 'audio/mpeg', {
+    tags: ['tts', 'user:john', 'language:en'],
+    customData: {
+        speaker: 'john',
+        voice: 'alloy',
+        text: 'Hello world',
+        duration: 2.5
+    }
+});
+
+// Query by tag
+const ttsAudios = await cache.getByTag('tts');
+const johnAudios = await cache.getByTag('user:john');
+
+console.log(`Found ${ttsAudios.length} TTS audios`);
+
+// Advanced cleanup with filters
+const deletedCount = await cache.cleanup({
+    maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
+    maxEntries: 100,                   // Keep max 100 entries
+    minAccessCount: 2,                 // Delete if accessed less than 2 times
+    tags: ['tts'],                     // Only cleanup TTS audios
+    excludeTags: ['favorite']          // But keep favorites
+});
+
+console.log(`Cleaned up ${deletedCount} entries`);
+
+// Get statistics with tag breakdown
+const stats = await cache.getStats();
+console.log('Total entries:', stats.entryCount);
+console.log('Total size:', stats.totalSize);
+console.log('By tag:', stats.byTag);
+// { tts: { count: 50, size: 1024000 }, 'user:john': { count: 20, size: 512000 } }
+
+// Clear by tag
+await cache.clearByTag('user:john');
 ```
 
 ## 🔧 API Reference

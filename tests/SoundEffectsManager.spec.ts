@@ -4,35 +4,178 @@
 
 import { SoundEffectsManager, createSoundEffectsManager } from '../src/index';
 
-// Mock AudioCache - Bun doesn't support jest.mock, so we'll test without mocking
-// const mockAudioCache = {
-//     initialize: jest.fn().mockResolvedValue(undefined),
-//     get: jest.fn().mockResolvedValue(null),
-//     set: jest.fn().mockResolvedValue(undefined),
-//     delete: jest.fn().mockResolvedValue(undefined),
-//     close: jest.fn()
-// };
+// Mock IndexedDB for Node.js environment
+class MockIDBRequest {
+    result: any = null;
+    error: any = null;
+    onsuccess: ((event: any) => void) | null = null;
+    onerror: ((event: any) => void) | null = null;
 
-// Mock AudioProcessor - Bun doesn't support jest.mock, so we'll test without mocking
-// const mockAudioProcessor = {
-//     splitIntoChunks: jest.fn().mockReturnValue([new Uint8Array(100)]),
-//     dispose: jest.fn()
-// };
+    _triggerSuccess(result: any) {
+        this.result = result;
+        if (this.onsuccess) {
+            this.onsuccess({ target: this });
+        }
+    }
+
+    _triggerError(error: any) {
+        this.error = error;
+        if (this.onerror) {
+            this.onerror({ target: this });
+        }
+    }
+}
+
+class MockIDBObjectStore {
+    private _data = new Map<string, any>();
+    private _storeName: string;
+
+    constructor(storeName: string) {
+        this._storeName = storeName;
+    }
+
+    createIndex() {
+        return this;
+    }
+
+    put(value: any) {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            this._data.set(value.id, value);
+            request._triggerSuccess(undefined);
+        }, 0);
+        return request;
+    }
+
+    get(key: string) {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            request._triggerSuccess(this._data.get(key) || null);
+        }, 0);
+        return request;
+    }
+
+    getAll() {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            request._triggerSuccess(Array.from(this._data.values()));
+        }, 0);
+        return request;
+    }
+
+    getAllKeys() {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            request._triggerSuccess(Array.from(this._data.keys()));
+        }, 0);
+        return request;
+    }
+
+    delete(key: string) {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            this._data.delete(key);
+            request._triggerSuccess(undefined);
+        }, 0);
+        return request;
+    }
+
+    clear() {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            this._data.clear();
+            request._triggerSuccess(undefined);
+        }, 0);
+        return request;
+    }
+
+    index() {
+        return {
+            getAll: (tag: string) => {
+                const request = new MockIDBRequest();
+                setTimeout(() => {
+                    const results = Array.from(this._data.values()).filter((entry: any) => 
+                        entry.tags && entry.tags.includes(tag)
+                    );
+                    request._triggerSuccess(results);
+                }, 0);
+                return request;
+            }
+        };
+    }
+}
+
+class MockIDBTransaction {
+    private _store: MockIDBObjectStore;
+
+    constructor(storeName: string) {
+        this._store = new MockIDBObjectStore(storeName);
+    }
+
+    objectStore(name: string) {
+        return this._store;
+    }
+}
+
+class MockIDBDatabase {
+    objectStoreNames = { contains: () => false };
+    onerror: any = null;
+    onversionchange: any = null;
+
+    transaction(storeNames: string[], mode: string) {
+        return new MockIDBTransaction(storeNames[0]);
+    }
+
+    createObjectStore(name: string, options: any) {
+        return new MockIDBObjectStore(name);
+    }
+
+    close() {}
+}
+
+class MockIDBOpenDBRequest extends MockIDBRequest {
+    onupgradeneeded: ((event: any) => void) | null = null;
+}
+
+// Mock indexedDB
+(global as any).indexedDB = {
+    open: (name: string, version: number) => {
+        const request = new MockIDBOpenDBRequest();
+        setTimeout(() => {
+            const db = new MockIDBDatabase();
+            if (request.onupgradeneeded) {
+                request.onupgradeneeded({ target: { result: db } });
+            }
+            request._triggerSuccess(db);
+        }, 0);
+        return request;
+    }
+};
+
+// Mock navigator.storage for quota estimation
+(global as any).navigator = {
+    ...((global as any).navigator || {}),
+    storage: {
+        estimate: () => Promise.resolve({ usage: 0, quota: 1000000000 })
+    }
+};
 
 // Mock global Audio
-Object.defineProperty(global, 'Audio', {
-    value: () => ({
-        play: () => Promise.resolve(),
-        pause: () => {},
-        load: () => {},
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        volume: 1.0,
-        loop: false,
-        currentTime: 0,
-    }),
-    writable: true,
-});
+(global as any).Audio = class MockAudio {
+    play = jest.fn().mockResolvedValue(undefined);
+    pause = jest.fn();
+    load = jest.fn();
+    addEventListener = jest.fn();
+    removeEventListener = jest.fn();
+    volume = 1.0;
+    loop = false;
+    currentTime = 0;
+    src = '';
+
+    constructor(src?: string) {
+        if (src) this.src = src;
+    }
+};
 
 // Mock fetch
 global.fetch = () =>

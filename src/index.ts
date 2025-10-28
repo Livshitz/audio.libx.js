@@ -30,6 +30,12 @@ export { RealtimeAudioProcessor } from './RealtimeAudioProcessor.js';
 export { PlaylistManager } from './PlaylistManager.js';
 export { SoundEffectsManager } from './SoundEffectsManager.js';
 
+// Audio Context Management
+export { AudioContextManager } from './AudioContextManager.js';
+
+// Audio Chunk Processing
+export { AudioChunkConverter } from './AudioChunkConverter.js';
+
 // Type exports
 export type {
     AudioStreamerOptions,
@@ -44,6 +50,7 @@ export type {
     AudioFormat,
     ChunkAppendOptions,
     CacheStats,
+    CacheCleanupOptions,
     // Recording types
     AudioRecorderOptions,
     RecordingState,
@@ -58,6 +65,10 @@ export type {
     RealtimeProcessingOptions,
     RealtimeAudioData,
     AudioEffect,
+    // Chunk streaming types
+    AudioChunk,
+    AudioChunkCallback,
+    ChunkFormat,
     // Playlist types
     PlaylistItem,
     PlayMode,
@@ -74,6 +85,10 @@ export type {
     SoundEffectEvent,
     SoundEffectEventType,
     SoundEffectEventCallback,
+    // Audio Context Manager types
+    AudioContextManagerState,
+    AudioContextManagerOptions,
+    PlatformType,
 } from './types.js';
 
 // Error exports
@@ -99,9 +114,14 @@ export function createSoundEffectsManager(options?: import('./types.js').SoundEf
     return new SoundEffectsManager(options);
 }
 
+export function createAudioContextManager(options?: import('./types.js').AudioContextManagerOptions): AudioContextManager {
+    return new AudioContextManager(options);
+}
+
 // Default export for CommonJS compatibility
 import { AudioStreamer } from './AudioStreamer.js';
 import { AudioRecorder } from './AudioRecorder.js';
 import { PlaylistManager } from './PlaylistManager.js';
 import { SoundEffectsManager } from './SoundEffectsManager.js';
+import { AudioContextManager } from './AudioContextManager.js';
 export default AudioStreamer;

@@ -4,6 +4,145 @@
 
 import { PlaylistManager, createPlaylistManager } from '../src/index';
 
+// Mock IndexedDB for Node.js environment (same as SoundEffectsManager tests)
+class MockIDBRequest {
+    result: any = null;
+    error: any = null;
+    onsuccess: ((event: any) => void) | null = null;
+    onerror: ((event: any) => void) | null = null;
+
+    _triggerSuccess(result: any) {
+        this.result = result;
+        if (this.onsuccess) {
+            this.onsuccess({ target: this });
+        }
+    }
+}
+
+class MockIDBObjectStore {
+    private _data = new Map<string, any>();
+
+    createIndex() {
+        return this;
+    }
+
+    put(value: any) {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            this._data.set(value.id, value);
+            request._triggerSuccess(undefined);
+        }, 0);
+        return request;
+    }
+
+    get(key: string) {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            request._triggerSuccess(this._data.get(key) || null);
+        }, 0);
+        return request;
+    }
+
+    getAll() {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            request._triggerSuccess(Array.from(this._data.values()));
+        }, 0);
+        return request;
+    }
+
+    getAllKeys() {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            request._triggerSuccess(Array.from(this._data.keys()));
+        }, 0);
+        return request;
+    }
+
+    delete(key: string) {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            this._data.delete(key);
+            request._triggerSuccess(undefined);
+        }, 0);
+        return request;
+    }
+
+    clear() {
+        const request = new MockIDBRequest();
+        setTimeout(() => {
+            this._data.clear();
+            request._triggerSuccess(undefined);
+        }, 0);
+        return request;
+    }
+
+    index() {
+        return {
+            getAll: () => {
+                const request = new MockIDBRequest();
+                setTimeout(() => request._triggerSuccess([]), 0);
+                return request;
+            }
+        };
+    }
+}
+
+class MockIDBTransaction {
+    private _store: MockIDBObjectStore;
+
+    constructor() {
+        this._store = new MockIDBObjectStore();
+    }
+
+    objectStore(name: string) {
+        return this._store;
+    }
+}
+
+class MockIDBDatabase {
+    objectStoreNames = { contains: () => false };
+    onerror: any = null;
+    onversionchange: any = null;
+
+    transaction(storeNames: string[], mode: string) {
+        return new MockIDBTransaction();
+    }
+
+    createObjectStore(name: string, options: any) {
+        return new MockIDBObjectStore();
+    }
+
+    close() {}
+}
+
+class MockIDBOpenDBRequest extends MockIDBRequest {
+    onupgradeneeded: ((event: any) => void) | null = null;
+}
+
+// Mock indexedDB
+(global as any).indexedDB = {
+    open: (name: string, version: number) => {
+        const request = new MockIDBOpenDBRequest();
+        setTimeout(() => {
+            const db = new MockIDBDatabase();
+            if (request.onupgradeneeded) {
+                request.onupgradeneeded({ target: { result: db } });
+            }
+            request._triggerSuccess(db);
+        }, 0);
+        return request;
+    }
+};
+
+// Mock navigator.storage for quota estimation
+(global as any).navigator = {
+    ...((global as any).navigator || {}),
+    storage: {
+        estimate: () => Promise.resolve({ usage: 0, quota: 1000000000 })
+    }
+};
+
 // Mock DOM environment for testing
 const mockAudioElement = {
     src: '',
@@ -86,8 +225,8 @@ describe('PlaylistManager', () => {
 
         test('should load playlist from PlaylistItems', () => {
             const items = [
-                { id: 'track1', url: 'http://example.com/track1.mp3', title: 'Track 1', duration: 180 },
-                { id: 'track2', url: 'http://example.com/track2.mp3', title: 'Track 2', duration: 200 },
+                { id: 'track1', url: 'http://example.com/track1.mp3', title: 'Track 1', duration: 180, metadata: {} },
+                { id: 'track2', url: 'http://example.com/track2.mp3', title: 'Track 2', duration: 200, metadata: {} },
             ];
             playlistManager.loadPlaylist(items);
 

@@ -34,6 +34,7 @@ export class SoundEffectsManager {
             defaultVolume: options.defaultVolume ?? 1.0,
             preloadSounds: options.preloadSounds ?? false,
             audioStreamerOptions: options.audioStreamerOptions ?? {},
+            useAudioContext: options.useAudioContext ?? false,
         };
 
         this._cache = new AudioCache(this._options.cacheDbName, this._options.cacheStoreName);
