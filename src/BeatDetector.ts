@@ -36,7 +36,7 @@ export class BeatDetector {
 	private _analyser: AnalyserNode | null = null;
 	private _sourceNode: MediaElementAudioSourceNode | null = null;
 	private _audioElement: HTMLAudioElement | null = null;
-	private _frequencyData: Uint8Array | null = null;
+	private _frequencyData: Uint8Array<ArrayBuffer> | null = null;
 	private _energyHistory: number[] = [];
 	private _lastBeatTime: number = 0;
 	private _beatCount: number = 0;
