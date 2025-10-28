@@ -143,17 +143,147 @@ class MockIDBOpenDBRequest extends MockIDBRequest {
     }
 };
 
+// Mock fetch for audio streaming
+const createMockResponse = () => {
+    const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: {
+            get: (name: string) => {
+                if (name === 'content-type') return 'audio/mpeg';
+                if (name === 'content-length') return '1000';
+                return null;
+            }
+        },
+        body: {
+            getReader: () => ({
+                read: jest.fn()
+                    .mockResolvedValueOnce({ done: false, value: new Uint8Array([1, 2, 3]) })
+                    .mockResolvedValueOnce({ done: true, value: undefined })
+            })
+        },
+        clone: function () {
+            return createMockResponse();
+        }
+    };
+    return mockResponse;
+};
+
+global.fetch = jest.fn().mockImplementation((url: string) => {
+    return Promise.resolve(createMockResponse() as any);
+});
+
+// Mock MediaSource API for audio streaming
+class MockMediaSource {
+    sourceBuffers = { length: 0 };
+    activeSourceBuffers = { length: 0 };
+    duration = 0;
+    readyState = 'closed';
+    private _eventListeners: Map<string, Set<Function>> = new Map();
+
+    constructor() {
+        // Simulate sourceopen event async
+        setTimeout(() => {
+            this.readyState = 'open';
+            this._triggerEvent('sourceopen');
+        }, 0);
+    }
+
+    addSourceBuffer(mimeType: string) {
+        const buffer = {
+            mode: 'sequence',
+            updating: false,
+            buffered: { length: 1, start: () => 0, end: () => 10 },
+            appendBuffer: jest.fn((chunk) => {
+                // Simulate async buffer append
+                setTimeout(() => {
+                    buffer.updating = false;
+                    buffer._triggerEvent('updateend');
+                }, 0);
+            }),
+            abort: jest.fn(),
+            remove: jest.fn(),
+            addEventListener: jest.fn((event, handler) => {
+                if (!buffer._eventListeners.has(event)) {
+                    buffer._eventListeners.set(event, new Set());
+                }
+                buffer._eventListeners.get(event)!.add(handler);
+            }),
+            removeEventListener: jest.fn((event, handler) => {
+                buffer._eventListeners.get(event)?.delete(handler);
+            }),
+            _eventListeners: new Map(),
+            _triggerEvent: (eventName: string) => {
+                const handlers = buffer._eventListeners.get(eventName);
+                if (handlers) {
+                    handlers.forEach(handler => handler(new Event(eventName)));
+                }
+            }
+        };
+        return buffer;
+    }
+
+    endOfStream() { }
+
+    addEventListener(event: string, handler: Function) {
+        if (!this._eventListeners.has(event)) {
+            this._eventListeners.set(event, new Set());
+        }
+        this._eventListeners.get(event)!.add(handler);
+    }
+
+    removeEventListener(event: string, handler: Function) {
+        this._eventListeners.get(event)?.delete(handler);
+    }
+
+    _triggerEvent(eventName: string) {
+        const handlers = this._eventListeners.get(eventName);
+        if (handlers) {
+            handlers.forEach(handler => handler(new Event(eventName)));
+        }
+    }
+
+    static isTypeSupported(mimeType: string) {
+        return mimeType.includes('audio/mpeg') || mimeType.includes('audio/mp4');
+    }
+}
+
+(global as any).MediaSource = MockMediaSource;
+(global as any).window = { MediaSource: MockMediaSource };
+
+// Mock URL.createObjectURL for MediaSource
+const originalCreateObjectURL = URL.createObjectURL;
+URL.createObjectURL = jest.fn((obj: any) => {
+    if (obj instanceof MockMediaSource || obj?.constructor?.name === 'MockMediaSource') {
+        return 'blob:mock-mediasource-url';
+    }
+    return 'blob:mock-url';
+});
+
 // Mock DOM environment for testing
+const eventListeners = new Map<string, Set<Function>>();
 const mockAudioElement = {
     src: '',
     play: jest.fn().mockResolvedValue(undefined),
     pause: jest.fn(),
     load: jest.fn(),
     removeAttribute: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    buffered: { length: 0, end: jest.fn().mockReturnValue(0) },
-    duration: 0,
+    addEventListener: jest.fn((event: string, handler: Function, options?: any) => {
+        if (!eventListeners.has(event)) {
+            eventListeners.set(event, new Set());
+        }
+        eventListeners.get(event)!.add(handler);
+
+        // Trigger canplay event when src is set
+        if (event === 'canplay' && mockAudioElement.src) {
+            setTimeout(() => handler(new Event('canplay')), 10);
+        }
+    }),
+    removeEventListener: jest.fn((event: string, handler: Function) => {
+        eventListeners.get(event)?.delete(handler);
+    }),
+    buffered: { length: 1, start: () => 0, end: () => 10 },
+    duration: 100,
     currentTime: 0,
     paused: false,
 } as unknown as HTMLAudioElement;
@@ -365,10 +495,11 @@ describe('PlaylistManager', () => {
 
         test('should toggle shuffle mode', () => {
             playlistManager.toggleShuffle();
-            const state = playlistManager.getState();
+            let state = playlistManager.getState();
             expect(state.isShuffled).toBe(true);
 
             playlistManager.toggleShuffle();
+            state = playlistManager.getState(); // Get fresh state
             expect(state.isShuffled).toBe(false);
         });
     });

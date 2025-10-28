@@ -319,7 +319,9 @@ describe('SoundEffectsManager', () => {
             const audioElement = await soundEffectsManager.playSound('click');
 
             expect(audioElement).not.toBeNull();
-            expect(audioElement).toBeInstanceOf(HTMLAudioElement);
+            // MockAudio is used in test environment instead of HTMLAudioElement
+            expect(audioElement).toBeDefined();
+            expect(audioElement.play).toBeDefined();
         });
 
         test('should play sound with custom options', async () => {
@@ -533,36 +535,50 @@ describe('SoundEffectsManager', () => {
 
     describe('Error Handling', () => {
         test('should handle fetch errors', async () => {
-            // Mock fetch to reject
+            // Save original fetch and mock to reject
+            const originalFetch = global.fetch;
             global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
             soundEffectsManager.registerSound('click', 'http://example.com/click.mp3');
             await soundEffectsManager.initialize();
 
             await expect(soundEffectsManager.playSound('click')).rejects.toThrow('Network error');
+
+            // Restore original fetch
+            global.fetch = originalFetch;
         });
 
         test('should handle autoplay restrictions', async () => {
-            // Mock Audio.play to reject with NotAllowedError
-            const mockAudio = {
-                play: () => Promise.reject(new Error('NotAllowedError')),
-                pause: () => {},
-                load: () => {},
-                addEventListener: () => {},
-                removeEventListener: () => {},
-                volume: 1.0,
-                loop: false,
-                currentTime: 0,
-            };
-            Object.defineProperty(global, 'Audio', {
-                value: () => mockAudio,
-                writable: true,
-            });
+            // Create a new manager with a custom Audio mock that rejects play
+            class FailingMockAudio {
+                play = jest.fn().mockRejectedValue(new Error('NotAllowedError'));
+                pause = jest.fn();
+                load = jest.fn();
+                addEventListener = jest.fn();
+                removeEventListener = jest.fn();
+                volume = 1.0;
+                loop = false;
+                currentTime = 0;
+                src = '';
 
-            soundEffectsManager.registerSound('click', 'http://example.com/click.mp3');
-            await soundEffectsManager.initialize();
+                constructor(src?: string) {
+                    if (src) this.src = src;
+                }
+            }
 
-            await expect(soundEffectsManager.playSound('click')).rejects.toThrow('NotAllowedError');
+            // Temporarily replace the global Audio
+            const originalAudio = (global as any).Audio;
+            (global as any).Audio = FailingMockAudio;
+
+            const failingManager = new SoundEffectsManager();
+            failingManager.registerSound('click', 'http://example.com/click.mp3');
+            await failingManager.initialize();
+
+            await expect(failingManager.playSound('click')).rejects.toThrow('NotAllowedError');
+
+            // Restore original Audio
+            (global as any).Audio = originalAudio;
+            failingManager.dispose();
         });
     });
 
