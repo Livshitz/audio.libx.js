@@ -3,43 +3,46 @@
  */
 
 export interface AudioStreamerOptions {
-	/** Buffer threshold in seconds before starting playback (default: 5) */
-	bufferThreshold?: number;
+    /** Buffer threshold in seconds before starting playback (default: 5) */
+    bufferThreshold?: number;
 
-	/** Enable persistent caching using IndexedDB (default: true) */
-	enableCaching?: boolean;
+    /** Enable persistent caching using IndexedDB (default: true) */
+    enableCaching?: boolean;
 
-	/** Enable automatic silence trimming (default: true) */
-	enableTrimming?: boolean;
+    /** Enable automatic silence trimming (default: true) */
+    enableTrimming?: boolean;
 
-	/** MIME type for audio content (auto-detected if not specified) */
-	mimeType?: string;
+    /** MIME type for audio content (auto-detected if not specified) */
+    mimeType?: string;
 
-	/** Silence threshold in dB for trimming (default: -50) */
-	silenceThresholdDb?: number;
+    /** Silence threshold in dB for trimming (default: -50) */
+    silenceThresholdDb?: number;
 
-	/** Minimum silence duration in ms to consider for trimming (default: 100) */
-	minSilenceMs?: number;
+    /** Minimum silence duration in ms to consider for trimming (default: 100) */
+    minSilenceMs?: number;
 
-	/** IndexedDB database name for caching (default: 'sound-libx-cache') */
-	cacheDbName?: string;
+    /** IndexedDB database name for caching (default: 'sound-libx-cache') */
+    cacheDbName?: string;
 
-	/** IndexedDB store name for audio tracks (default: 'audio-tracks') */
-	cacheStoreName?: string;
+    /** IndexedDB store name for audio tracks (default: 'audio-tracks') */
+    cacheStoreName?: string;
+
+    /** Force use of native progressive streaming instead of MSE (auto-detected on mobile by default) */
+    useNativeStreaming?: boolean;
 }
 
 export interface StreamResult {
-	/** Promise that resolves when audio is loaded and ready to play */
-	onLoaded: Promise<string>;
+    /** Promise that resolves when audio is loaded and ready to play */
+    onLoaded: Promise<string>;
 
-	/** Promise that resolves when playback has ended */
-	onEnded: Promise<string>;
+    /** Promise that resolves when playback has ended */
+    onEnded: Promise<string>;
 
-	/** Unique identifier for this audio stream */
-	audioId: string;
+    /** Unique identifier for this audio stream */
+    audioId: string;
 
-	/** Cancel the streaming operation */
-	cancel: () => void;
+    /** Cancel the streaming operation */
+    cancel: () => void;
 }
 
 export interface AudioCacheEntry {
@@ -72,93 +75,93 @@ export interface AudioCacheEntry {
 }
 
 export interface AudioProcessingResult {
-	/** Processed audio as Blob */
-	blob: Blob;
+    /** Processed audio as Blob */
+    blob: Blob;
 
-	/** Processing metadata */
-	metadata: {
-		originalDuration: number;
-		trimmedDuration: number;
-		silenceRemovedStart: number;
-		silenceRemovedEnd: number;
-	};
+    /** Processing metadata */
+    metadata: {
+        originalDuration: number;
+        trimmedDuration: number;
+        silenceRemovedStart: number;
+        silenceRemovedEnd: number;
+    };
 }
 
 export interface MediaSourceInfo {
-	/** The MediaSource instance */
-	mediaSource: MediaSource | any; // 'any' for ManagedMediaSource
+    /** The MediaSource instance */
+    mediaSource: MediaSource | any; // 'any' for ManagedMediaSource
 
-	/** Whether this is a ManagedMediaSource (iOS 17.1+) */
-	isManaged: boolean;
+    /** Whether this is a ManagedMediaSource (iOS 17.1+) */
+    isManaged: boolean;
 
-	/** Supported MIME types */
-	supportedMimeTypes: string[];
+    /** Supported MIME types */
+    supportedMimeTypes: string[];
 }
 
 export interface StreamingState {
-	/** Current streaming state */
-	state: 'idle' | 'loading' | 'streaming' | 'playing' | 'paused' | 'ended' | 'error';
+    /** Current streaming state */
+    state: 'idle' | 'loading' | 'streaming' | 'playing' | 'paused' | 'ended' | 'error';
 
-	/** Current audio ID being processed */
-	currentAudioId?: string;
+    /** Current audio ID being processed */
+    currentAudioId?: string;
 
-	/** Buffer progress (0-1) */
-	bufferProgress: number;
+    /** Buffer progress (0-1) */
+    bufferProgress: number;
 
-	/** Whether sufficient buffer is available for playback */
-	canPlay: boolean;
+    /** Whether sufficient buffer is available for playback */
+    canPlay: boolean;
 
-	/** Error message if state is 'error' */
-	error?: string;
+    /** Error message if state is 'error' */
+    error?: string;
 }
 
 export type StreamingEventType =
-	| 'stateChange'
-	| 'bufferProgress'
-	| 'canPlay'
-	| 'loadStart'
-	| 'loadEnd'
-	| 'playStart'
-	| 'playEnd'
-	| 'error'
-	| 'cacheHit'
-	| 'cacheMiss';
+    | 'stateChange'
+    | 'bufferProgress'
+    | 'canPlay'
+    | 'loadStart'
+    | 'loadEnd'
+    | 'playStart'
+    | 'playEnd'
+    | 'error'
+    | 'cacheHit'
+    | 'cacheMiss';
 
 export interface StreamingEvent {
-	type: StreamingEventType;
-	audioId?: string;
-	data?: any;
-	timestamp: number;
+    type: StreamingEventType;
+    audioId?: string;
+    data?: any;
+    timestamp: number;
 }
 
 export type StreamingEventCallback = (event: StreamingEvent) => void;
 
 export interface AudioFormat {
-	/** Detected format type */
-	type: 'mp3' | 'wav' | 'webm' | 'ogg' | 'unknown';
+    /** Detected format type */
+    type: 'mp3' | 'wav' | 'webm' | 'ogg' | 'unknown';
 
-	/** MIME type */
-	mimeType: string;
+    /** MIME type */
+    mimeType: string;
 
-	/** Whether format supports streaming */
-	streamable: boolean;
+    /** Whether format supports streaming */
+    streamable: boolean;
 
-	/** Codec information if available */
-	codec?: string;
+    /** Codec information if available */
+    codec?: string;
 
-	/** Whether format requires conversion for MediaSource compatibility */
-	requiresConversion?: boolean;
+    /** Whether format requires conversion for MediaSource compatibility */
+    requiresConversion?: boolean;
 }
 
 export interface ChunkAppendOptions {
-	/** Whether to wait for previous append to complete */
-	waitForUpdate?: boolean;
+    /** Whether to wait for previous append to complete */
+    waitForUpdate?: boolean;
 
-	/** Timeout in ms for append operation */
-	timeout?: number;
+    /** Timeout in ms for append operation */
+    timeout?: number;
 
-	/** Retry count for failed appends */
-	retryCount?: number;
+    /** Retry count for failed appends */
+    retryCount?: number;
 }
 
 export interface CacheStats {
@@ -178,7 +181,7 @@ export interface CacheStats {
     hitRatio: number;
 
     /** Statistics by tag */
-    byTag?: Record<string, { count: number; size: number }>;
+    byTag?: Record<string, { count: number; size: number; }>;
 }
 
 export interface CacheCleanupOptions {
@@ -200,33 +203,33 @@ export interface CacheCleanupOptions {
 
 // Error types
 export class AudioStreamingError extends Error {
-	constructor(
-		message: string,
-		public code: string,
-		public audioId?: string,
-		public originalError?: Error
-	) {
-		super(message);
-		this.name = 'AudioStreamingError';
-	}
+    constructor(
+        message: string,
+        public code: string,
+        public audioId?: string,
+        public originalError?: Error
+    ) {
+        super(message);
+        this.name = 'AudioStreamingError';
+    }
 }
 
 export class MediaSourceError extends AudioStreamingError {
-	constructor(message: string, audioId?: string, originalError?: Error) {
-		super(message, 'MEDIA_SOURCE_ERROR', audioId, originalError);
-	}
+    constructor(message: string, audioId?: string, originalError?: Error) {
+        super(message, 'MEDIA_SOURCE_ERROR', audioId, originalError);
+    }
 }
 
 export class CacheError extends AudioStreamingError {
-	constructor(message: string, audioId?: string, originalError?: Error) {
-		super(message, 'CACHE_ERROR', audioId, originalError);
-	}
+    constructor(message: string, audioId?: string, originalError?: Error) {
+        super(message, 'CACHE_ERROR', audioId, originalError);
+    }
 }
 
 export class ProcessingError extends AudioStreamingError {
-	constructor(message: string, audioId?: string, originalError?: Error) {
-		super(message, 'PROCESSING_ERROR', audioId, originalError);
-	}
+    constructor(message: string, audioId?: string, originalError?: Error) {
+        super(message, 'PROCESSING_ERROR', audioId, originalError);
+    }
 }
 
 export class RecordingError extends AudioStreamingError {

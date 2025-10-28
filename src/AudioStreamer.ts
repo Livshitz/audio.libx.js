@@ -34,6 +34,10 @@ export class AudioStreamer {
 		options: AudioStreamerOptions = {}
 	) {
 		this._audioElement = audioElement;
+
+		// Auto-detect mobile for native streaming
+		const isMobile = this._detectMobile();
+
 		this._options = {
 			bufferThreshold: options.bufferThreshold ?? 5,
 			enableCaching: options.enableCaching ?? true,
@@ -42,7 +46,9 @@ export class AudioStreamer {
 			silenceThresholdDb: options.silenceThresholdDb ?? -50,
 			minSilenceMs: options.minSilenceMs ?? 100,
 			cacheDbName: options.cacheDbName ?? 'sound-libx-cache',
-			cacheStoreName: options.cacheStoreName ?? 'audio-tracks'
+			cacheStoreName: options.cacheStoreName ?? 'audio-tracks',
+			// Auto-enable native streaming on mobile unless explicitly overridden
+			useNativeStreaming: options.useNativeStreaming ?? isMobile
 		};
 
 		this._mediaSourceHelper = MediaSourceHelper.getInstance();
@@ -56,6 +62,10 @@ export class AudioStreamer {
 		};
 
 		this._setupAudioElementListeners();
+
+		if (this._options.useNativeStreaming) {
+			console.log('[AudioStreamer] Using native progressive streaming (mobile-optimized)');
+		}
 	}
 
 	/**
@@ -156,6 +166,16 @@ export class AudioStreamer {
 		audioId?: string,
 		options: { justCache?: boolean; } = {}
 	): Promise<StreamResult> {
+		await this.initialize();
+
+		const id = audioId || this._generateId();
+
+		// Use native streaming if enabled (mobile optimization)
+		if (this._options.useNativeStreaming) {
+			return this._streamNatively(url, id);
+		}
+
+		// Desktop: use MSE-based streaming
 		try {
 			const response = await fetch(url);
 			if (!response.ok) {
@@ -337,15 +357,12 @@ export class AudioStreamer {
 				if (!playbackStarted && this._isBufferSufficient()) {
 					playbackStarted = true;
 					onLoadedPromise.resolve(audioId);
-					this._setState('playing', audioId);
+					this._setState('paused', audioId);
 					this._emitEvent('canPlay', audioId);
 
-					try {
-						await this._audioElement.play();
-						this._emitEvent('playStart', audioId);
-					} catch (playError) {
-						console.warn('Playback failed:', playError);
-					}
+					// Don't auto-play - let caller control playback
+					// Mobile browsers block auto-play anyway
+					console.log('Audio ready for playback (not auto-playing)');
 				}
 			}
 
@@ -358,16 +375,12 @@ export class AudioStreamer {
 				}
 			}
 
-			// If playback never started, start it now
+			// If playback never started, mark as ready
 			if (!playbackStarted && !signal.aborted) {
 				onLoadedPromise.resolve(audioId);
-				this._setState('playing', audioId);
-				try {
-					await this._audioElement.play();
-					this._emitEvent('playStart', audioId);
-				} catch (playError) {
-					console.warn('Final playback attempt failed:', playError);
-				}
+				this._setState('paused', audioId);
+				this._emitEvent('canPlay', audioId);
+				console.log('Audio streaming complete, ready for playback');
 			}
 
 		} catch (error) {
@@ -459,11 +472,9 @@ export class AudioStreamer {
 						URL.revokeObjectURL(url);
 					}, { once: true });
 
-					// Wait for the audio to be ready, then start playback automatically
+					// Don't auto-play - let caller control playback
 					this._audioElement.addEventListener('canplay', () => {
-						this._audioElement.play().catch(error => {
-							console.warn('Auto-play failed for WAV file:', error);
-						});
+						console.log('WAV audio ready for playback (not auto-playing)');
 					}, { once: true });
 
 					// Set up play event listener to update state when playback actually starts
@@ -662,6 +673,120 @@ export class AudioStreamer {
 				}
 			});
 		}
+	}
+
+	/**
+	 * Detect if running on mobile device (iOS/Android)
+	 * Mobile Safari has poor MSE support, so we use native streaming
+	 */
+	private _detectMobile(): boolean {
+		if (typeof navigator === 'undefined') return false;
+
+		const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+
+		// Check for iOS
+		const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+
+		// Check for Android
+		const isAndroid = /android/i.test(userAgent);
+
+		// Check for mobile Safari specifically
+		const isMobileSafari = isIOS && /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+
+		return isIOS || isAndroid || isMobileSafari;
+	}
+
+	/**
+	 * Stream audio using native HTML5 progressive loading (mobile-optimized)
+	 * This bypasses MSE and lets the browser handle streaming natively
+	 */
+	private async _streamNatively(url: string, audioId: string): Promise<StreamResult> {
+		// Cancel any existing streams
+		this._cancelAllActiveStreams();
+
+		const abortController = new AbortController();
+		this._activeStreams.set(audioId, abortController);
+
+		const onLoadedPromise = this._createPromise<string>();
+		const onEndedPromise = this._createPromise<string>();
+
+		this._emitEvent('loadStart', audioId);
+
+		try {
+			this._setState('loading', audioId);
+			this._resetAudioElement();
+
+			console.log('[AudioStreamer] Using native streaming for URL:', url.substring(0, 100) + '...');
+
+			// Set src directly - let browser handle progressive loading
+			this._audioElement.src = url;
+
+			// Set up event listeners for consistent behavior
+			const onCanPlay = () => {
+				console.log('[AudioStreamer] Audio ready for playback (native streaming)');
+				this._setState('paused', audioId);
+				this._state.canPlay = true;
+				this._emitEvent('canPlay', audioId);
+
+				// Resolve loaded promise when ready
+				if (!onLoadedPromise.promise) {
+					onLoadedPromise.resolve(audioId);
+				}
+			};
+
+			const onLoadedMetadata = () => {
+				console.log('[AudioStreamer] Metadata loaded (native streaming)');
+				onLoadedPromise.resolve(audioId);
+			};
+
+			const onProgress = () => {
+				// Update buffer progress based on browser buffering
+				if (this._audioElement.buffered.length > 0) {
+					const bufferedEnd = this._audioElement.buffered.end(this._audioElement.buffered.length - 1);
+					const duration = this._audioElement.duration || 1;
+					const progress = duration > 0 ? bufferedEnd / duration : 0;
+					this._state.bufferProgress = progress;
+					this._emitEvent('bufferProgress', audioId, progress);
+				}
+			};
+
+			const onError = (e: Event) => {
+				console.error('[AudioStreamer] Native streaming error:', e);
+				const error = this._audioElement.error;
+				const errorMessage = error ? `Media error ${error.code}: ${error.message}` : 'Unknown playback error';
+				this._setState('error', audioId, errorMessage);
+				onLoadedPromise.reject(new Error(errorMessage));
+				onEndedPromise.reject(new Error(errorMessage));
+				this._emitEvent('error', audioId, errorMessage);
+			};
+
+			// Add event listeners
+			this._audioElement.addEventListener('canplay', onCanPlay, { once: true });
+			this._audioElement.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+			this._audioElement.addEventListener('progress', onProgress);
+			this._audioElement.addEventListener('error', onError, { once: true });
+
+			// Start loading
+			this._audioElement.load();
+
+			// Set up playback promises
+			this._setupPlaybackPromises(audioId, onEndedPromise);
+
+			this._emitEvent('loadEnd', audioId);
+
+		} catch (error) {
+			this._activeStreams.delete(audioId);
+			onLoadedPromise.reject(error);
+			onEndedPromise.reject(error);
+			this._emitEvent('error', audioId, error);
+		}
+
+		return {
+			audioId,
+			onLoaded: onLoadedPromise.promise,
+			onEnded: onEndedPromise.promise,
+			cancel: () => this._cancelStream(audioId)
+		};
 	}
 
 	/**
