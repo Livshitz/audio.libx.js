@@ -707,3 +707,87 @@ export interface AudioContextManagerOptions {
     /** Whether to automatically try to unlock on first user gesture */
     autoUnlock?: boolean;
 }
+
+// BeatDetector Types
+export interface BeatDetectorOptions {
+    /** Sensitivity for beat detection (0.5-5.0, default: 2.0) */
+    sensitivity?: number;
+
+    /** Cooldown period between beats in milliseconds (default: 200) */
+    cooldown?: number;
+
+    /** Low frequency range for bass detection (0-1, default: 0) */
+    frequencyRangeLow?: number;
+
+    /** High frequency range for bass detection (0-1, default: 0.15) */
+    frequencyRangeHigh?: number;
+
+    /** Size of energy history buffer in frames (default: 43) */
+    energyHistorySize?: number;
+
+    /** Minimum energy threshold to detect beats (0-1, default: 0.01) */
+    minEnergyThreshold?: number;
+
+    /** FFT size for frequency analysis (default: 512) */
+    fftSize?: number;
+
+    /** Smoothing time constant for analyser (0-1, default: 0.8) */
+    smoothingTimeConstant?: number;
+}
+
+export interface BeatDetectorState {
+    /** Whether beat detection is running */
+    isRunning: boolean;
+
+    /** Timestamp of last detected beat */
+    lastBeatTime: number | null;
+
+    /** Average energy level */
+    avgEnergy: number;
+
+    /** Current instant energy level */
+    currentEnergy: number;
+
+    /** Total number of beats detected */
+    beatCount: number;
+
+    /** Current configuration */
+    config: Required<BeatDetectorOptions>;
+}
+
+export interface BeatEvent {
+    /** Timestamp of the beat */
+    timestamp: number;
+
+    /** Beat strength relative to threshold */
+    strength: number;
+
+    /** Instant energy level (0-1) */
+    energy: number;
+
+    /** Average energy level (0-1) */
+    avgEnergy: number;
+
+    /** Confidence score (0-1) */
+    confidence: number;
+}
+
+export type BeatDetectorEventType =
+    | 'beat'
+    | 'started'
+    | 'stopped'
+    | 'error';
+
+export interface BeatDetectorEvent {
+    type: BeatDetectorEventType;
+    data?: any;
+    timestamp: number;
+}
+
+export type BeatDetectorEventCallback = (event: BeatDetectorEvent) => void;
+
+export class BeatDetectionError extends AudioStreamingError {
+    constructor(message: string, originalError?: Error) {
+        super(message, 'BEAT_DETECTION_ERROR', undefined, originalError);
+    }
+}

@@ -36,6 +36,9 @@ export { AudioContextManager } from './AudioContextManager.js';
 // Audio Chunk Processing
 export { AudioChunkConverter } from './AudioChunkConverter.js';
 
+// Beat Detection
+export { BeatDetector } from './BeatDetector.js';
+
 // Type exports
 export type {
     AudioStreamerOptions,
@@ -89,10 +92,17 @@ export type {
     AudioContextManagerState,
     AudioContextManagerOptions,
     PlatformType,
+    // Beat Detection types
+    BeatDetectorOptions,
+    BeatDetectorState,
+    BeatEvent,
+    BeatDetectorEventType,
+    BeatDetectorEventCallback,
+    BeatDetectorEvent,
 } from './types.js';
 
 // Error exports
-export { AudioStreamingError, MediaSourceError, CacheError, ProcessingError, RecordingError, PermissionError } from './types.js';
+export { AudioStreamingError, MediaSourceError, CacheError, ProcessingError, RecordingError, PermissionError, BeatDetectionError } from './types.js';
 
 // Convenience factory functions
 export function createAudioStreamer(
@@ -118,10 +128,15 @@ export function createAudioContextManager(options?: import('./types.js').AudioCo
     return new AudioContextManager(options);
 }
 
+export function createBeatDetector(options?: import('./types.js').BeatDetectorOptions): BeatDetector {
+    return new BeatDetector(options);
+}
+
 // Default export for CommonJS compatibility
 import { AudioStreamer } from './AudioStreamer.js';
 import { AudioRecorder } from './AudioRecorder.js';
 import { PlaylistManager } from './PlaylistManager.js';
 import { SoundEffectsManager } from './SoundEffectsManager.js';
 import { AudioContextManager } from './AudioContextManager.js';
+import { BeatDetector } from './BeatDetector.js';
 export default AudioStreamer;
