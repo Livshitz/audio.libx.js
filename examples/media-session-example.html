@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Media Session API Example - audio.libx.js</title>
+	<style>
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+			max-width: 800px;
+			margin: 50px auto;
+			padding: 20px;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: #fff;
+		}
+
+		.container {
+			background: rgba(255, 255, 255, 0.1);
+			backdrop-filter: blur(10px);
+			border-radius: 20px;
+			padding: 30px;
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+		}
+
+		h1 {
+			margin-top: 0;
+			font-size: 2em;
+		}
+
+		.info {
+			background: rgba(255, 255, 255, 0.1);
+			padding: 15px;
+			border-radius: 10px;
+			margin: 20px 0;
+			font-size: 0.9em;
+		}
+
+		.controls {
+			display: flex;
+			gap: 10px;
+			margin: 20px 0;
+			flex-wrap: wrap;
+		}
+
+		button {
+			padding: 12px 24px;
+			border: none;
+			border-radius: 8px;
+			background: rgba(255, 255, 255, 0.9);
+			color: #667eea;
+			font-weight: bold;
+			cursor: pointer;
+			transition: all 0.3s;
+			font-size: 14px;
+		}
+
+		button:hover {
+			background: #fff;
+			transform: translateY(-2px);
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+		}
+
+		button:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+			transform: none;
+		}
+
+		.track-info {
+			background: rgba(0, 0, 0, 0.2);
+			padding: 20px;
+			border-radius: 10px;
+			margin: 20px 0;
+		}
+
+		.track-info h3 {
+			margin: 0 0 10px 0;
+		}
+
+		.track-info p {
+			margin: 5px 0;
+			opacity: 0.9;
+		}
+
+		.status {
+			font-size: 0.9em;
+			opacity: 0.8;
+			margin: 10px 0;
+		}
+
+		.playlist {
+			list-style: none;
+			padding: 0;
+			margin: 20px 0;
+		}
+
+		.playlist li {
+			background: rgba(255, 255, 255, 0.1);
+			padding: 10px 15px;
+			margin: 5px 0;
+			border-radius: 8px;
+			cursor: pointer;
+			transition: all 0.3s;
+		}
+
+		.playlist li:hover {
+			background: rgba(255, 255, 255, 0.2);
+		}
+
+		.playlist li.active {
+			background: rgba(255, 255, 255, 0.3);
+			font-weight: bold;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<h1>🎵 Media Session API Demo</h1>
+
+		<div class="info">
+			<strong>📱 iOS/Android Users:</strong> Lock your screen and control playback from the lock screen!<br>
+			<strong>🖥️ Desktop Users:</strong> Use browser media controls or Bluetooth devices.<br>
+			<strong>✨ Features:</strong> Play/Pause, Seek, Next/Previous track integration.
+		</div>
+
+		<div class="track-info" id="trackInfo">
+			<h3 id="trackTitle">No track loaded</h3>
+			<p id="trackArtist">-</p>
+			<p id="trackAlbum">-</p>
+		</div>
+
+		<div class="controls">
+			<button id="playBtn">▶️ Play</button>
+			<button id="pauseBtn" disabled>⏸️ Pause</button>
+			<button id="prevBtn">⏮️ Previous</button>
+			<button id="nextBtn">⏭️ Next</button>
+			<button id="shuffleBtn">🔀 Shuffle</button>
+		</div>
+
+		<h3>Playlist</h3>
+		<ul class="playlist" id="playlist"></ul>
+
+		<div class="status" id="status">
+			Ready to play
+		</div>
+	</div>
+
+	<script type="module">
+		import { PlaylistManager, MediaSessionManager } from '../build/index.js';
+
+		// Create audio element
+		const audio = new Audio();
+		audio.crossOrigin = 'anonymous';
+
+		// Create playlist manager
+		const playlist = new PlaylistManager(audio, {
+			audioStreamerOptions: {
+				enableCaching: true,
+				useNativeStreaming: true, // Better for mobile
+			}
+		});
+
+		// Create media session manager
+		const mediaSession = new MediaSessionManager({
+			seekBackwardOffset: 10,
+			seekForwardOffset: 10,
+			autoUpdatePosition: true,
+		});
+
+		// Connect to audio element for auto-sync
+		mediaSession.connectAudioElement(audio);
+
+		// Define playlist
+		const tracks = [
+			{
+				id: 'track-1',
+				url: './files/Jazz.wav',
+				title: 'Jazz Vibes',
+				artist: 'Cool Cat Trio',
+				album: 'Smooth Sessions',
+				duration: 0,
+				artwork: 'https://via.placeholder.com/512/667eea/ffffff?text=Jazz',
+				metadata: {}
+			},
+			{
+				id: 'track-2',
+				url: './files/Sorry.mp3',
+				title: 'Sorry (Not Sorry)',
+				artist: 'The Apologetics',
+				album: 'Mixed Feelings',
+				duration: 0,
+				artwork: 'https://via.placeholder.com/512/764ba2/ffffff?text=Sorry',
+				metadata: {}
+			}
+		];
+
+		// Load playlist
+		playlist.loadPlaylist(tracks);
+
+		// Update media session metadata on track change
+		playlist.on('trackChanged', (event) => {
+			const track = event.data.track;
+
+			// Update media session metadata
+			mediaSession.updateMetadata({
+				title: track.title,
+				artist: track.artist || 'Unknown Artist',
+				album: track.album || 'Unknown Album',
+				artwork: track.artwork ? [
+					{ src: track.artwork, sizes: '512x512', type: 'image/jpeg' }
+				] : []
+			});
+
+			// Update UI
+			updateTrackInfo(track);
+			updatePlaylistUI(event.data.index);
+		});
+
+		// Update media session callbacks for playlist control
+		mediaSession.updateCallbacks({
+			onPlay: async () => {
+				await playlist.play();
+			},
+			onPause: () => {
+				playlist.pause();
+			},
+			onSeek: (time) => {
+				audio.currentTime = time;
+			},
+			onPreviousTrack: () => {
+				playlist.previous();
+			},
+			onNextTrack: () => {
+				playlist.next();
+			},
+			onStop: () => {
+				playlist.pause();
+				audio.currentTime = 0;
+			}
+		});
+
+		// Playlist event handlers
+		playlist.on('playStart', () => {
+			document.getElementById('playBtn').disabled = true;
+			document.getElementById('pauseBtn').disabled = false;
+			document.getElementById('status').textContent = '▶️ Playing...';
+		});
+
+		playlist.on('pause', () => {
+			document.getElementById('playBtn').disabled = false;
+			document.getElementById('pauseBtn').disabled = true;
+			document.getElementById('status').textContent = '⏸️ Paused';
+		});
+
+		playlist.on('trackEnded', () => {
+			document.getElementById('status').textContent = '⏭️ Track ended';
+		});
+
+		playlist.on('playlistEnded', () => {
+			document.getElementById('playBtn').disabled = false;
+			document.getElementById('pauseBtn').disabled = true;
+			document.getElementById('status').textContent = '✅ Playlist finished';
+		});
+
+		// UI Controls
+		document.getElementById('playBtn').addEventListener('click', async () => {
+			try {
+				await playlist.play();
+			} catch (error) {
+				console.error('Play error:', error);
+				document.getElementById('status').textContent = '❌ Error: ' + error.message;
+			}
+		});
+
+		document.getElementById('pauseBtn').addEventListener('click', () => {
+			playlist.pause();
+		});
+
+		document.getElementById('prevBtn').addEventListener('click', () => {
+			playlist.previous();
+		});
+
+		document.getElementById('nextBtn').addEventListener('click', () => {
+			playlist.next();
+		});
+
+		document.getElementById('shuffleBtn').addEventListener('click', () => {
+			playlist.toggleShuffle();
+			const state = playlist.getState();
+			document.getElementById('shuffleBtn').textContent = state.isShuffled ? '🔀 Shuffle: ON' : '🔀 Shuffle: OFF';
+		});
+
+		// Render playlist UI
+		function renderPlaylist() {
+			const playlistEl = document.getElementById('playlist');
+			playlistEl.innerHTML = '';
+
+			tracks.forEach((track, index) => {
+				const li = document.createElement('li');
+				li.textContent = `${track.title} - ${track.artist}`;
+				li.dataset.index = index;
+				li.addEventListener('click', () => {
+					playlist.playTrack(index);
+				});
+				playlistEl.appendChild(li);
+			});
+		}
+
+		function updateTrackInfo(track) {
+			document.getElementById('trackTitle').textContent = track.title;
+			document.getElementById('trackArtist').textContent = track.artist || 'Unknown Artist';
+			document.getElementById('trackAlbum').textContent = track.album || 'Unknown Album';
+		}
+
+		function updatePlaylistUI(activeIndex) {
+			const items = document.querySelectorAll('.playlist li');
+			items.forEach((item, index) => {
+				item.classList.toggle('active', index === activeIndex);
+			});
+		}
+
+		// Initialize
+		renderPlaylist();
+
+		console.log('🎵 Media Session Example Ready!');
+		console.log('- Lock your device (iOS/Android) to see lock screen controls');
+		console.log('- Use browser media controls on desktop');
+		console.log('- Playback state syncs automatically with Media Session API');
+	</script>
+</body>
+
+</html>

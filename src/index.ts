@@ -39,6 +39,9 @@ export { AudioChunkConverter } from './AudioChunkConverter.js';
 // Beat Detection
 export { BeatDetector } from './BeatDetector.js';
 
+// Media Session API
+export { MediaSessionManager } from './MediaSessionManager.js';
+
 // Type exports
 export type {
     AudioStreamerOptions,
@@ -101,6 +104,13 @@ export type {
     BeatDetectorEvent,
 } from './types.js';
 
+// Media Session types
+export type {
+    MediaSessionMetadata,
+    MediaSessionCallbacks,
+    MediaSessionOptions,
+} from './MediaSessionManager.js';
+
 // Error exports
 export { AudioStreamingError, MediaSourceError, CacheError, ProcessingError, RecordingError, PermissionError, BeatDetectionError } from './types.js';
 
@@ -132,6 +142,10 @@ export function createBeatDetector(options?: import('./types.js').BeatDetectorOp
     return new BeatDetector(options);
 }
 
+export function createMediaSessionManager(options?: import('./MediaSessionManager.js').MediaSessionOptions): MediaSessionManager {
+    return new MediaSessionManager(options);
+}
+
 // Default export for CommonJS compatibility
 import { AudioStreamer } from './AudioStreamer.js';
 import { AudioRecorder } from './AudioRecorder.js';
@@ -139,4 +153,5 @@ import { PlaylistManager } from './PlaylistManager.js';
 import { SoundEffectsManager } from './SoundEffectsManager.js';
 import { AudioContextManager } from './AudioContextManager.js';
 import { BeatDetector } from './BeatDetector.js';
+import { MediaSessionManager } from './MediaSessionManager.js';
 export default AudioStreamer;

@@ -30,6 +30,13 @@ A comprehensive audio library for web browsers that provides both progressive st
 - **Event-Driven**: Real-time playlist events and state management
 - **Track Management**: Add, remove, and reorder tracks dynamically
 
+### 📱 Media Session API
+- **Lock Screen Controls**: Control playback from iOS/Android lock screens
+- **Background Playback**: Keep audio playing when app is minimized (iOS Safari support)
+- **System Integration**: Bluetooth, AirPods, and car controls support
+- **Metadata Display**: Show track title, artist, album, and artwork on lock screen
+- **Auto-sync**: Automatic position and state synchronization
+
 ### 🔊 Sound Effects
 - **Key-Based Mapping**: Register sound effects with string, number, or symbol keys
 - **Smart Caching**: Avoid re-downloading with persistent sound effect caching
@@ -177,6 +184,59 @@ playlistManager.toggleShuffle();       // Enable/disable shuffle
 playlistManager.addTrack('https://example.com/new-track.mp3');
 playlistManager.removeTrack(1);
 playlistManager.clearPlaylist();
+```
+
+### Media Session API (Lock Screen Controls)
+```typescript
+import { createPlaylistManager, createMediaSessionManager } from 'audio.libx.js';
+
+// Setup audio and playlist
+const audioElement = document.getElementById('audio') as HTMLAudioElement;
+const playlist = createPlaylistManager(audioElement, {
+    audioStreamerOptions: {
+        useNativeStreaming: true  // Better for mobile background playback
+    }
+});
+
+// Create media session manager for lock screen controls
+const mediaSession = createMediaSessionManager({
+    seekBackwardOffset: 10,    // 10 seconds back
+    seekForwardOffset: 10,     // 10 seconds forward
+    autoUpdatePosition: true   // Auto-sync with audio element
+});
+
+// Connect to audio element for auto-sync
+mediaSession.connectAudioElement(audioElement);
+
+// Update metadata when track changes
+playlist.on('trackChanged', (event) => {
+    const track = event.data.track;
+    
+    mediaSession.updateMetadata({
+        title: track.title,
+        artist: track.artist || 'Unknown Artist',
+        album: track.album || 'Unknown Album',
+        artwork: [
+            { src: track.artwork, sizes: '512x512', type: 'image/jpeg' }
+        ]
+    });
+});
+
+// Setup playback callbacks for system controls
+mediaSession.updateCallbacks({
+    onPlay: async () => await playlist.play(),
+    onPause: () => playlist.pause(),
+    onSeek: (time) => audioElement.currentTime = time,
+    onPreviousTrack: () => playlist.previous(),
+    onNextTrack: () => playlist.next(),
+});
+
+// That's it! Now you get:
+// ✅ Lock screen controls on iOS/Android
+// ✅ Background playback support
+// ✅ Bluetooth/AirPods controls
+// ✅ Browser media controls on desktop
+// ✅ Automatic position state updates
 ```
 
 ### Sound Effects
