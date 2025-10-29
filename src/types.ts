@@ -773,6 +773,9 @@ export interface BeatEvent {
 
     /** Confidence score (0-1) */
     confidence: number;
+
+    /** Detected BPM (optional, calculated from beat intervals) */
+    detectedBPM?: number;
 }
 
 export type BeatDetectorEventType =

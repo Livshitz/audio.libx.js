@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Beat & Rhythm Detection Test - audio.libx.js</title>
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: system-ui, -apple-system, sans-serif;
+			max-width: 1000px;
+			margin: 20px auto;
+			padding: 20px;
+			background: #f5f5f5;
+		}
+
+		.container {
+			background: white;
+			padding: 30px;
+			border-radius: 10px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+
+		h1 {
+			margin-top: 0;
+		}
+
+		.controls {
+			margin: 20px 0;
+			display: flex;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+
+		.input-group {
+			display: flex;
+			gap: 10px;
+			align-items: center;
+			flex: 1;
+			min-width: 300px;
+		}
+
+		.input-group input[type="text"],
+		.input-group input[type="file"] {
+			flex: 1;
+			padding: 8px 12px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			font-size: 14px;
+		}
+
+		button {
+			padding: 10px 20px;
+			border: none;
+			border-radius: 5px;
+			background: #007bff;
+			color: white;
+			cursor: pointer;
+			font-size: 14px;
+			transition: background 0.2s;
+		}
+
+		button:hover {
+			background: #0056b3;
+		}
+
+		button:disabled {
+			background: #ccc;
+			cursor: not-allowed;
+		}
+
+		button.secondary {
+			background: #6c757d;
+		}
+
+		button.secondary:hover {
+			background: #5a6268;
+		}
+
+		.beat-indicator {
+			width: 120px;
+			height: 120px;
+			border-radius: 50%;
+			background: #ddd;
+			margin: 30px auto;
+			transition: all 0.1s ease;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 24px;
+			font-weight: bold;
+			color: #666;
+		}
+
+		.beat-indicator.active {
+			background: #ff0066;
+			color: white;
+			transform: scale(1.15);
+			box-shadow: 0 0 40px rgba(255, 0, 102, 0.8);
+		}
+
+		.stats {
+			margin-top: 20px;
+			padding: 15px;
+			background: #f8f9fa;
+			border-radius: 5px;
+			font-family: monospace;
+			font-size: 13px;
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+			gap: 10px;
+		}
+
+		.stat-item {
+			padding: 8px;
+			background: white;
+			border-radius: 3px;
+		}
+
+		.stat-label {
+			font-weight: bold;
+			color: #666;
+			font-size: 11px;
+			text-transform: uppercase;
+		}
+
+		.stat-value {
+			font-size: 16px;
+			color: #333;
+			margin-top: 4px;
+		}
+
+		.slider-group {
+			margin: 20px 0;
+			padding: 15px;
+			background: #f8f9fa;
+			border-radius: 5px;
+		}
+
+		.slider-group label {
+			display: block;
+			margin-bottom: 8px;
+			font-weight: 500;
+		}
+
+		.slider-group input[type="range"] {
+			width: 100%;
+			margin-top: 5px;
+		}
+
+		.waveform-container {
+			margin: 20px 0;
+			background: #000;
+			border-radius: 5px;
+			padding: 10px;
+			height: 150px;
+		}
+
+		#waveformCanvas {
+			width: 100%;
+			height: 100%;
+		}
+
+		audio {
+			width: 100%;
+			margin-top: 20px;
+		}
+
+		.info {
+			background: #e7f3ff;
+			border-left: 4px solid #007bff;
+			padding: 12px;
+			margin: 20px 0;
+			border-radius: 3px;
+			font-size: 14px;
+		}
+
+		.nav-section {
+			background: #f8f9fa;
+			border-radius: 5px;
+			padding: 15px;
+			margin-bottom: 20px;
+			border: 1px solid #dee2e6;
+		}
+
+		.nav-section h3 {
+			margin: 0 0 10px 0;
+			font-size: 14px;
+			color: #6c757d;
+			text-transform: uppercase;
+			font-weight: 600;
+		}
+
+		.nav-links {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.nav-links a {
+			padding: 6px 12px;
+			background: white;
+			border: 1px solid #dee2e6;
+			border-radius: 5px;
+			text-decoration: none;
+			color: #007bff;
+			font-size: 13px;
+			transition: all 0.2s;
+		}
+
+		.nav-links a:hover {
+			background: #007bff;
+			color: white;
+			border-color: #007bff;
+		}
+
+		.nav-links a.active {
+			background: #007bff;
+			color: white;
+			border-color: #007bff;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<div class="nav-section">
+			<h3>📚 Examples</h3>
+			<div class="nav-links">
+				<a href="demo.html">Main Demo</a>
+				<a href="basic-usage.html">Basic Usage</a>
+				<a href="beat-detection-example.html">Beat Detection</a>
+				<a href="beat-rhythm-test.html" class="active">Beat & Rhythm Test</a>
+				<a href="recording-example.html">Recording</a>
+				<a href="media-session-example.html">Media Session</a>
+			</div>
+		</div>
+
+		<h1>🎵 Beat & Rhythm Detection Test</h1>
+		<p>Test beat detection with your audio files or Firebase Storage URLs</p>
+
+		<div class="info">
+			<strong>Instructions:</strong> Load an audio file or paste a Firebase Storage URL, then start detection and play the audio.
+		</div>
+
+		<div class="controls">
+			<div class="input-group">
+				<input type="file" id="audioFile" accept="audio/*" placeholder="Select audio file">
+				<button id="loadFileBtn" class="secondary">Load File</button>
+			</div>
+			<div class="input-group">
+				<input type="text" id="audioUrl" placeholder="Or paste Firebase Storage URL">
+				<button id="loadUrlBtn" class="secondary">Load URL</button>
+			</div>
+		</div>
+
+		<div class="controls">
+			<button id="playBtn">Play</button>
+			<button id="pauseBtn">Pause</button>
+			<button id="startDetectionBtn">Start Detection</button>
+			<button id="stopDetectionBtn">Stop Detection</button>
+		</div>
+
+		<div class="slider-group">
+			<label>Sensitivity: <span id="sensitivityValue">2.0</span></label>
+			<input type="range" id="sensitivity" min="0.5" max="5" step="0.1" value="2.0">
+		</div>
+
+		<div class="slider-group">
+			<label>Cooldown (ms): <span id="cooldownValue">200</span></label>
+			<input type="range" id="cooldown" min="50" max="500" step="10" value="200">
+		</div>
+
+		<div class="beat-indicator" id="beatIndicator">🎵</div>
+
+		<div class="waveform-container">
+			<canvas id="waveformCanvas"></canvas>
+		</div>
+
+		<div class="stats">
+			<div class="stat-item">
+				<div class="stat-label">Status</div>
+				<div class="stat-value" id="status">Not started</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-label">Beats Detected</div>
+				<div class="stat-value" id="beatCount">0</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-label">Current Energy</div>
+				<div class="stat-value" id="currentEnergy">0.000</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-label">Avg Energy</div>
+				<div class="stat-value" id="avgEnergy">0.000</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-label">Last Beat Strength</div>
+				<div class="stat-value" id="lastStrength">-</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-label">Last Beat Time</div>
+				<div class="stat-value" id="lastBeatTime">-</div>
+			</div>
+		</div>
+
+		<audio id="audioElement" controls preload="auto"></audio>
+	</div>
+
+	<script type="module">
+		console.log('Script starting...');
+		
+		import { BeatDetector } from '../build/BeatDetector.js';
+		console.log('BeatDetector imported successfully');
+
+		const audioElement = document.getElementById('audioElement');
+		console.log('Audio element:', audioElement);
+		const audioFile = document.getElementById('audioFile');
+		const audioUrl = document.getElementById('audioUrl');
+		const loadFileBtn = document.getElementById('loadFileBtn');
+		const loadUrlBtn = document.getElementById('loadUrlBtn');
+		const playBtn = document.getElementById('playBtn');
+		const pauseBtn = document.getElementById('pauseBtn');
+		console.log('Play button:', playBtn, 'Pause button:', pauseBtn);
+		const startDetectionBtn = document.getElementById('startDetectionBtn');
+		const stopDetectionBtn = document.getElementById('stopDetectionBtn');
+		const beatIndicator = document.getElementById('beatIndicator');
+		const sensitivitySlider = document.getElementById('sensitivity');
+		const cooldownSlider = document.getElementById('cooldown');
+		const sensitivityValue = document.getElementById('sensitivityValue');
+		const cooldownValue = document.getElementById('cooldownValue');
+		const waveformCanvas = document.getElementById('waveformCanvas');
+		const ctx = waveformCanvas.getContext('2d');
+
+		// Stats elements
+		const statusEl = document.getElementById('status');
+		const beatCountEl = document.getElementById('beatCount');
+		const currentEnergyEl = document.getElementById('currentEnergy');
+		const avgEnergyEl = document.getElementById('avgEnergy');
+		const lastStrengthEl = document.getElementById('lastStrength');
+		const lastBeatTimeEl = document.getElementById('lastBeatTime');
+
+		let beatDetector = new BeatDetector({
+			sensitivity: 2.0,
+			cooldown: 200
+		});
+
+		let beatCount = 0;
+		let lastStrength = '-';
+		let lastBeatTimestamp = null;
+		let waveformData = new Array(200).fill(0);
+
+		// Setup canvas
+		function resizeCanvas() {
+			const rect = waveformCanvas.parentElement.getBoundingClientRect();
+			waveformCanvas.width = rect.width - 20;
+			waveformCanvas.height = rect.height - 20;
+		}
+		resizeCanvas();
+		window.addEventListener('resize', resizeCanvas);
+
+		// Draw waveform
+		function drawWaveform() {
+			if (!ctx) return;
+
+			const width = waveformCanvas.width;
+			const height = waveformCanvas.height;
+
+			ctx.fillStyle = '#000';
+			ctx.fillRect(0, 0, width, height);
+
+			ctx.strokeStyle = '#0f0';
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+
+			const step = width / waveformData.length;
+			for (let i = 0; i < waveformData.length; i++) {
+				const x = i * step;
+				const y = (height / 2) - (waveformData[i] * height / 2);
+				if (i === 0) {
+					ctx.moveTo(x, y);
+				} else {
+					ctx.lineTo(x, y);
+				}
+			}
+			ctx.stroke();
+
+			// Draw center line
+			ctx.strokeStyle = '#333';
+			ctx.beginPath();
+			ctx.moveTo(0, height / 2);
+			ctx.lineTo(width, height / 2);
+			ctx.stroke();
+		}
+
+		// Load file
+		loadFileBtn.addEventListener('click', () => {
+			const file = audioFile.files[0];
+			if (file) {
+				const url = URL.createObjectURL(file);
+				audioElement.src = url;
+				audioElement.load(); // Force reload
+				statusEl.textContent = 'File loaded, loading...';
+			}
+		});
+
+		audioFile.addEventListener('change', () => {
+			if (audioFile.files[0]) {
+				loadFileBtn.click();
+			}
+		});
+
+		// Load URL
+		loadUrlBtn.addEventListener('click', () => {
+			const url = audioUrl.value.trim();
+			if (url) {
+				audioElement.src = url;
+				audioElement.load(); // Force reload
+				statusEl.textContent = 'URL loaded, loading...';
+			}
+		});
+
+		// Playback controls
+		playBtn.addEventListener('click', async () => {
+			console.log('Play button clicked, audio src:', audioElement.src);
+			if (!audioElement.src) {
+				alert('Please load an audio file or URL first');
+				return;
+			}
+
+			// Wait for audio to be ready if not already
+			if (audioElement.readyState < 2) {
+				statusEl.textContent = 'Loading audio...';
+				await new Promise((resolve, reject) => {
+					const timeout = setTimeout(() => reject(new Error('Audio load timeout')), 10000);
+					audioElement.addEventListener('canplay', () => {
+						clearTimeout(timeout);
+						resolve();
+					}, { once: true });
+					audioElement.addEventListener('error', (e) => {
+						clearTimeout(timeout);
+						reject(e);
+					}, { once: true });
+					audioElement.load();
+				});
+			}
+
+			try {
+				await audioElement.play();
+				console.log('Audio playing successfully');
+			} catch (err) {
+				console.error('Play error:', err);
+				alert('Error playing audio: ' + err.message + '\n\nThis might be due to browser autoplay restrictions. Try clicking the play button on the audio controls below.');
+				statusEl.textContent = 'Play error: ' + err.message;
+			}
+		});
+
+		pauseBtn.addEventListener('click', () => {
+			audioElement.pause();
+			statusEl.textContent = 'Paused ⏸';
+		});
+
+		// Audio element event listeners for status updates
+		audioElement.addEventListener('play', () => {
+			statusEl.textContent = 'Playing 🔊';
+			playBtn.disabled = true;
+			pauseBtn.disabled = false;
+		});
+
+		audioElement.addEventListener('pause', () => {
+			statusEl.textContent = 'Paused ⏸';
+			playBtn.disabled = false;
+			pauseBtn.disabled = false;
+		});
+
+		audioElement.addEventListener('ended', () => {
+			statusEl.textContent = 'Ended';
+			playBtn.disabled = false;
+			pauseBtn.disabled = false;
+		});
+
+		audioElement.addEventListener('loadstart', () => {
+			statusEl.textContent = 'Loading...';
+		});
+
+		audioElement.addEventListener('canplay', () => {
+			statusEl.textContent = 'Ready to play';
+			playBtn.disabled = false;
+		});
+
+		audioElement.addEventListener('error', (e) => {
+			statusEl.textContent = 'Error loading audio';
+			console.error('Audio error:', e);
+		});
+
+		// Detection controls
+		startDetectionBtn.addEventListener('click', async () => {
+			try {
+				if (!beatDetector.isRunning()) {
+					await beatDetector.connectAudioElement(audioElement);
+					beatDetector.start();
+					updateStats();
+				}
+			} catch (error) {
+				alert('Error starting beat detection: ' + error.message);
+				console.error(error);
+			}
+		});
+
+		stopDetectionBtn.addEventListener('click', () => {
+			beatDetector.stop();
+			updateStats();
+		});
+
+		// Sensitivity control
+		sensitivitySlider.addEventListener('input', (e) => {
+			const value = parseFloat(e.target.value);
+			sensitivityValue.textContent = value.toFixed(1);
+			beatDetector.setSensitivity(value);
+		});
+
+		// Cooldown control
+		cooldownSlider.addEventListener('input', (e) => {
+			const value = parseInt(e.target.value);
+			cooldownValue.textContent = value;
+			beatDetector.setCooldown(value);
+		});
+
+		// Beat events
+		beatDetector.on('beat', (event) => {
+			beatCount++;
+			lastStrength = event.data.strength.toFixed(2);
+			lastBeatTimestamp = event.data.timestamp;
+
+			// Visual feedback
+			beatIndicator.classList.add('active');
+			setTimeout(() => {
+				beatIndicator.classList.remove('active');
+			}, 100);
+
+			updateStats();
+		});
+
+		beatDetector.on('started', () => {
+			console.log('Beat detection started');
+			beatCount = 0;
+			lastStrength = '-';
+			lastBeatTimestamp = null;
+			updateStats();
+		});
+
+		beatDetector.on('stopped', () => {
+			console.log('Beat detection stopped');
+			updateStats();
+		});
+
+		// Update stats display
+		function updateStats() {
+			const state = beatDetector.getState();
+			statusEl.textContent = state.isRunning ? 'Running ✅' : 'Stopped ⏸';
+			beatCountEl.textContent = beatCount.toString();
+			currentEnergyEl.textContent = state.currentEnergy.toFixed(3);
+			avgEnergyEl.textContent = state.avgEnergy.toFixed(3);
+			lastStrengthEl.textContent = lastStrength;
+			
+			if (lastBeatTimestamp) {
+				const timeAgo = ((performance.now() - lastBeatTimestamp) / 1000).toFixed(1);
+				lastBeatTimeEl.textContent = `${timeAgo}s ago`;
+			} else {
+				lastBeatTimeEl.textContent = '-';
+			}
+		}
+
+		// Waveform visualization
+		function updateWaveform() {
+			if (!beatDetector.isRunning()) {
+				requestAnimationFrame(updateWaveform);
+				return;
+			}
+
+			const state = beatDetector.getState();
+			waveformData.push(state.currentEnergy);
+			waveformData.shift();
+			drawWaveform();
+
+			requestAnimationFrame(updateWaveform);
+		}
+
+		// Periodic stats update
+		setInterval(updateStats, 100);
+		updateWaveform();
+	</script>
+</body>
+
+</html>

@@ -109,6 +109,19 @@
                 border-bottom-color: var(--primary-color);
             }
 
+            .tab.tab-link {
+                text-decoration: none;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .tab.tab-link:hover {
+                background: rgba(255, 0, 102, 0.1);
+                color: #ff0066;
+                border-bottom-color: #ff0066;
+            }
+
             .tab-content {
                 background: rgba(255, 255, 255, 0.95);
                 backdrop-filter: blur(10px);
@@ -727,8 +740,13 @@
     <body>
         <header class="header">
             <div class="header-content">
-                <div class="logo">🎵 audio.libx.js</div>
-                <div class="version">v0.2.0</div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <a href="/examples/beat-rhythm-test.html" style="padding: 10px 20px; background: #ff0066 !important; color: white !important; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block; box-shadow: 0 2px 6px rgba(255,0,102,0.4); white-space: nowrap;">🎯 Beat Test</a>
+                    <div class="logo">🎵 audio.libx.js</div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="version">v0.2.0</div>
+                </div>
             </div>
         </header>
 
@@ -743,6 +761,7 @@
                 <button class="tab" data-tab="caching">💾 Caching</button>
                 <button class="tab" data-tab="realtime">📊 Real-time</button>
                 <button class="tab" data-tab="permissions">🔒 Permissions</button>
+                <a href="/examples/beat-rhythm-test.html" class="tab tab-link">🎯 Beat Test</a>
             </div>
 
             <div class="tab-content">
@@ -852,6 +871,18 @@ const recorder = createAudioRecorder({
 // Start recording
 const recording = await recorder.startRecording();
 await recording.onStarted;</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3 class="section-title">📚 Standalone Examples</h3>
+                        <p class="section-description">Try out these standalone example pages:</p>
+                        <div class="controls">
+                            <a href="basic-usage.html" class="btn btn-primary" target="_blank">Basic Usage</a>
+                            <a href="beat-detection-example.html" class="btn btn-primary" target="_blank">Beat Detection</a>
+                            <a href="/examples/beat-rhythm-test.html" class="btn btn-primary" target="_blank">🎵 Beat & Rhythm Test (New)</a>
+                            <a href="recording-example.html" class="btn btn-primary" target="_blank">Recording</a>
+                            <a href="media-session-example.html" class="btn btn-primary" target="_blank">Media Session</a>
                         </div>
                     </div>
 

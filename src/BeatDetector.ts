@@ -1,6 +1,6 @@
 /**
  * BeatDetector - Real-time beat detection for audio playback
- * Uses energy-based detection on bass frequencies with statistical thresholding
+ * Uses spectral flux onset detection with multi-band analysis
  */
 
 import {
@@ -19,19 +19,19 @@ export class BeatDetector {
 	private _options: Required<BeatDetectorOptions>;
 	private _state: BeatDetectorState;
 	private _eventCallbacks: Map<BeatDetectorEventType, BeatDetectorEventCallback[]> = new Map();
-	private _energyHistory: number[] = [];
-	private _lastBeatTime: number = 0;
 	private _animationFrameId: number | null = null;
 	private _isConnected: boolean = false;
-	private _lastEnergy: number = 0;
-	private _peakDetectionWindow: number[] = [];
-	private _isPeakMode: boolean = false;
 	private _debugMode: boolean = false;
-	private _debugLogCounter: number = 0;
-	private _peakStartTime: number = 0;
-	private _beatIntervals: number[] = [];  // Track time between beats for tempo
-	private _estimatedBPM: number = 0;
-	private _expectedNextBeat: number = 0;
+
+	// Spectral flux tracking
+	private _previousSpectrum: Float32Array | null = null;
+	private _fluxHistory: number[] = [];
+	private _lastBeatTime: number = 0;
+
+	// Multi-band energy tracking
+	private _bassEnergy: number = 0;
+	private _midEnergy: number = 0;
+	private _totalEnergy: number = 0;
 
 	constructor(options: BeatDetectorOptions = {}) {
 		this._options = {
@@ -41,8 +41,8 @@ export class BeatDetector {
 			frequencyRangeHigh: options.frequencyRangeHigh ?? 0.15,
 			energyHistorySize: options.energyHistorySize ?? 43,
 			minEnergyThreshold: options.minEnergyThreshold ?? 0.01,
-			fftSize: options.fftSize ?? 512,
-			smoothingTimeConstant: options.smoothingTimeConstant ?? 0.8,
+			fftSize: options.fftSize ?? 2048, // Larger FFT for better frequency resolution
+			smoothingTimeConstant: options.smoothingTimeConstant ?? 0.3, // Lower smoothing for more responsive detection
 		};
 
 		this._state = {
@@ -72,8 +72,7 @@ export class BeatDetector {
 			this._audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 			this._analyserNode = this._audioContext.createAnalyser();
 			this._analyserNode.fftSize = this._options.fftSize;
-			// Reduced smoothing for more responsive beat detection
-			this._analyserNode.smoothingTimeConstant = Math.min(0.5, this._options.smoothingTimeConstant);
+			this._analyserNode.smoothingTimeConstant = this._options.smoothingTimeConstant;
 
 			this._sourceNode = this._audioContext.createMediaElementSource(audioElement);
 			this._sourceNode.connect(this._analyserNode);
@@ -99,8 +98,7 @@ export class BeatDetector {
 			this._audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 			this._analyserNode = this._audioContext.createAnalyser();
 			this._analyserNode.fftSize = this._options.fftSize;
-			// Reduced smoothing for more responsive beat detection
-			this._analyserNode.smoothingTimeConstant = Math.min(0.5, this._options.smoothingTimeConstant);
+			this._analyserNode.smoothingTimeConstant = this._options.smoothingTimeConstant;
 
 			this._sourceNode = this._audioContext.createMediaStreamSource(stream);
 			this._sourceNode.connect(this._analyserNode);
@@ -124,16 +122,13 @@ export class BeatDetector {
 		if (this._state.isRunning) return;
 
 		this._state.isRunning = true;
-		this._energyHistory = [];
+		this._previousSpectrum = null;
+		this._fluxHistory = [];
 		this._lastBeatTime = 0;
 		this._state.beatCount = 0;
-		this._lastEnergy = 0;
-		this._peakDetectionWindow = [];
-		this._isPeakMode = false;
-		this._peakStartTime = 0;
-		this._beatIntervals = [];
-		this._estimatedBPM = 0;
-		this._expectedNextBeat = 0;
+		this._bassEnergy = 0;
+		this._midEnergy = 0;
+		this._totalEnergy = 0;
 
 		this._detectLoop();
 	}
@@ -233,7 +228,8 @@ export class BeatDetector {
 		}
 
 		this._eventCallbacks.clear();
-		this._energyHistory = [];
+		this._previousSpectrum = null;
+		this._fluxHistory = [];
 	}
 
 	/**
@@ -260,177 +256,162 @@ export class BeatDetector {
 	}
 
 	/**
-	 * Beat detection loop
+	 * Calculate spectral flux (change in frequency spectrum)
+	 */
+	private _calculateSpectralFlux(currentSpectrum: Float32Array, previousSpectrum: Float32Array): number {
+		let flux = 0;
+		const binCount = Math.min(currentSpectrum.length, previousSpectrum.length);
+
+		for (let i = 0; i < binCount; i++) {
+			const diff = currentSpectrum[i] - previousSpectrum[i];
+			// Only count positive changes (energy increases)
+			if (diff > 0) {
+				flux += diff;
+			}
+		}
+
+		return flux / binCount;
+	}
+
+	/**
+	 * Calculate multi-band energy
+	 * frequencyData contains dB values (typically -100 to 0)
+	 */
+	private _calculateMultiBandEnergy(frequencyData: Float32Array, sampleRate: number): { bass: number; mid: number; total: number } {
+		const binCount = frequencyData.length;
+		const nyquist = sampleRate / 2;
+		const binSize = nyquist / binCount;
+
+		// Frequency ranges
+		const bassEndHz = 150;
+		const midStartHz = 150;
+		const midEndHz = 2000;
+
+		const bassEndBin = Math.min(binCount, Math.floor(bassEndHz / binSize));
+		const midStartBin = Math.min(binCount, Math.floor(midStartHz / binSize));
+		const midEndBin = Math.min(binCount, Math.floor(midEndHz / binSize));
+
+		let bassEnergy = 0;
+		let midEnergy = 0;
+		let totalEnergy = 0;
+
+		for (let i = 0; i < binCount; i++) {
+			// Convert dB to linear scale for energy calculation
+			// dB values are negative, so we add 100 to shift to positive range
+			const magnitude = frequencyData[i] + 100;
+			totalEnergy += magnitude;
+
+			if (i < bassEndBin && bassEndBin > 0) {
+				bassEnergy += magnitude;
+			} else if (i >= midStartBin && i < midEndBin && midEndBin > midStartBin) {
+				midEnergy += magnitude;
+			}
+		}
+
+		return {
+			bass: bassEndBin > 0 ? bassEnergy / bassEndBin : 0,
+			mid: (midEndBin > midStartBin) ? midEnergy / (midEndBin - midStartBin) : 0,
+			total: totalEnergy / binCount,
+		};
+	}
+
+	/**
+	 * Beat detection loop using spectral flux and multi-band analysis
 	 */
 	private _detectLoop = (): void => {
 		if (!this._state.isRunning) return;
 
 		this._animationFrameId = requestAnimationFrame(this._detectLoop);
 
-		if (!this._analyserNode) return;
+		if (!this._analyserNode || !this._audioContext) return;
 
-		// Get frequency data
-		const frequencyData = new Uint8Array(this._analyserNode.frequencyBinCount);
-		this._analyserNode.getByteFrequencyData(frequencyData);
+		// Get frequency data as Float32Array (values are in dB, typically -100 to 0)
+		const frequencyData = new Float32Array(this._analyserNode.frequencyBinCount);
+		this._analyserNode.getFloatFrequencyData(frequencyData);
 
-		// Calculate instant energy for bass frequencies
-		const bassStart = Math.floor(frequencyData.length * this._options.frequencyRangeLow);
-		const bassEnd = Math.floor(frequencyData.length * this._options.frequencyRangeHigh);
+		const sampleRate = this._audioContext.sampleRate;
 
-		let instantEnergy = 0;
-		for (let i = bassStart; i < bassEnd; i++) {
-			instantEnergy += (frequencyData[i] / 255) ** 2;
+		// Calculate multi-band energy (convert dB to linear scale for processing)
+		const bandEnergy = this._calculateMultiBandEnergy(frequencyData, sampleRate);
+		this._bassEnergy = bandEnergy.bass;
+		this._midEnergy = bandEnergy.mid;
+		this._totalEnergy = bandEnergy.total;
+
+		// Combined energy (weighted: bass is more important for beat detection)
+		const combinedEnergy = (this._bassEnergy * 0.6) + (this._midEnergy * 0.4);
+		// Normalize energy (dB values are negative, so we normalize to 0-1 range)
+		this._state.currentEnergy = Math.max(0, Math.min(1, (combinedEnergy + 100) / 100));
+
+		// Calculate spectral flux
+		let spectralFlux = 0;
+		if (this._previousSpectrum) {
+			spectralFlux = this._calculateSpectralFlux(frequencyData, this._previousSpectrum);
 		}
-		instantEnergy /= (bassEnd - bassStart);
 
-		this._state.currentEnergy = instantEnergy;
+		// Store current spectrum for next iteration
+		this._previousSpectrum = new Float32Array(frequencyData);
 
-		// Maintain energy history
-		this._energyHistory.push(instantEnergy);
-		if (this._energyHistory.length > this._options.energyHistorySize) {
-			this._energyHistory.shift();
+		// Need previous spectrum to calculate flux
+		if (!this._previousSpectrum || spectralFlux === 0) return;
+
+		// Maintain flux history for adaptive thresholding
+		this._fluxHistory.push(spectralFlux);
+		if (this._fluxHistory.length > this._options.energyHistorySize) {
+			this._fluxHistory.shift();
 		}
 
-		// Need minimum history for detection (reduced from full buffer)
-		if (this._energyHistory.length < Math.min(10, this._options.energyHistorySize)) return;
+		// Need minimum history for detection
+		if (this._fluxHistory.length < 10) return;
 
-		// Calculate adaptive threshold using very recent history for fast adaptation
-		const recentHistorySize = Math.min(15, this._energyHistory.length);
-		const recentHistory = this._energyHistory.slice(-recentHistorySize);
-		const avgEnergy = recentHistory.reduce((a, b) => a + b) / recentHistory.length;
-		const variance = recentHistory.reduce((sum, e) => sum + (e - avgEnergy) ** 2, 0) / recentHistory.length;
+		// Calculate adaptive threshold
+		const recentHistory = this._fluxHistory.slice(-Math.min(20, this._fluxHistory.length));
+		const avgFlux = recentHistory.reduce((a, b) => a + b, 0) / recentHistory.length;
+		const variance = recentHistory.reduce((sum, f) => sum + (f - avgFlux) ** 2, 0) / recentHistory.length;
 		const stdDev = Math.sqrt(variance);
+		const threshold = avgFlux + (this._options.sensitivity * stdDev);
 
-		// Cap sensitivity to prevent over-detection
-		const effectiveSensitivity = Math.min(this._options.sensitivity, 2.0);
-		const threshold = avgEnergy + (effectiveSensitivity * stdDev * 0.85);
-
-		this._state.avgEnergy = avgEnergy;
-
-		// Detect energy increase (potential beat onset)
-		const energyIncrease = instantEnergy - this._lastEnergy;
-		const isEnergyRising = energyIncrease > 0;
+		this._state.avgEnergy = avgFlux;
 
 		const now = performance.now();
 		const timeSinceLastBeat = now - this._lastBeatTime;
 
-		// Debug logging (every 30 frames when enabled)
-		if (this._debugMode) {
-			this._debugLogCounter++;
-			if (this._debugLogCounter % 30 === 0) {
-				console.log('[BeatDetector Debug]', {
-					instantEnergy: instantEnergy.toFixed(4),
-					avgEnergy: avgEnergy.toFixed(4),
+		// Beat detection conditions
+		const fluxAboveThreshold = spectralFlux > threshold;
+		// minEnergyThreshold is 0-1, combinedEnergy is already normalized
+		const energyAboveMinimum = this._state.currentEnergy > this._options.minEnergyThreshold;
+		const outsideCooldown = timeSinceLastBeat > this._options.cooldown;
+		const significantIncrease = spectralFlux > avgFlux + (stdDev * 0.5); // Significant flux increase
+
+		if (fluxAboveThreshold && energyAboveMinimum && outsideCooldown && significantIncrease) {
+			// Calculate beat strength and confidence
+			const fluxStrength = (spectralFlux - avgFlux) / (stdDev + 0.001);
+			const beatStrength = Math.min(5, fluxStrength);
+			const confidence = Math.min(1, beatStrength / 3);
+
+			const beatEvent: BeatEvent = {
+				timestamp: now,
+				strength: beatStrength,
+				energy: this._state.currentEnergy,
+				avgEnergy: avgFlux,
+				confidence: confidence,
+			};
+
+			this._lastBeatTime = now;
+			this._state.lastBeatTime = now;
+			this._state.beatCount++;
+
+			if (this._debugMode) {
+				console.log('[BeatDetector] BEAT', {
+					flux: spectralFlux.toFixed(4),
 					threshold: threshold.toFixed(4),
-					stdDev: stdDev.toFixed(4),
-					isRising: isEnergyRising,
-					isPeakMode: this._isPeakMode,
-					timeSinceBeat: timeSinceLastBeat.toFixed(0) + 'ms',
+					strength: beatStrength.toFixed(2),
+					bassEnergy: this._bassEnergy.toFixed(2),
+					midEnergy: this._midEnergy.toFixed(2),
 				});
 			}
+
+			this._emitEvent('beat', beatEvent);
 		}
-
-		// Simplified beat detection: focus on strong, clear onsets
-		const energyJump = instantEnergy - this._lastEnergy;
-		const energyAboveAvg = instantEnergy - avgEnergy;
-
-		// Adaptive onset threshold: must be a VERY sharp rise
-		// Scale with stdDev but enforce a high minimum to avoid false positives
-		const onsetThreshold = Math.max(0.12, stdDev * 1.5);
-
-		// Must be significantly above average energy
-		const avgEnergyThreshold = Math.max(stdDev * 2.0, 0.08);
-
-		// Track peak detection window
-		this._peakDetectionWindow.push(instantEnergy);
-		if (this._peakDetectionWindow.length > 4) {
-			this._peakDetectionWindow.shift();
-		}
-
-		// State machine: idle -> detecting peak -> cooldown
-		if (!this._isPeakMode) {
-			// Strict onset requirements to reduce false positives
-			const hasSharpOnset = isEnergyRising && energyJump > onsetThreshold;
-			const wellAboveAverage = energyAboveAvg > avgEnergyThreshold;
-			const aboveThreshold = instantEnergy > threshold;
-			const aboveMinEnergy = instantEnergy > this._options.minEnergyThreshold;
-			const outsideCooldown = timeSinceLastBeat > this._options.cooldown;
-
-			// ALL conditions must be met
-			const hasOnset = hasSharpOnset && wellAboveAverage && aboveThreshold &&
-				aboveMinEnergy && outsideCooldown;
-
-			if (hasOnset) {
-				// Enter peak detection mode
-				this._isPeakMode = true;
-				this._peakStartTime = now;
-				this._peakDetectionWindow = [instantEnergy];
-
-				if (this._debugMode) {
-					console.log('[BeatDetector] 🎯 Onset detected, finding peak...', {
-						energy: instantEnergy.toFixed(4),
-						jump: energyJump.toFixed(4),
-						onsetThresh: onsetThreshold.toFixed(4),
-						aboveAvg: energyAboveAvg.toFixed(4),
-						avgThresh: avgEnergyThreshold.toFixed(4),
-					});
-				}
-			}
-		} else {
-			// In peak detection mode - wait for energy to stop rising or timeout
-			const peakTimeout = now - this._peakStartTime > 200; // Max 200ms to find peak (kick drums can have slow attack)
-			// Require sustained drop - energy must fall for 2 consecutive frames
-			const energyFalling = !isEnergyRising && this._peakDetectionWindow.length >= 3 &&
-				this._peakDetectionWindow[this._peakDetectionWindow.length - 1] < this._peakDetectionWindow[this._peakDetectionWindow.length - 2];
-
-			if (energyFalling || peakTimeout) {
-				// Found peak - trigger beat at the highest energy point
-				const peakEnergy = Math.max(...this._peakDetectionWindow);
-				const beatStrength = (peakEnergy - avgEnergy) / (stdDev + 0.0001);
-				const confidence = Math.min(1, beatStrength / 5);
-
-				// Additional validation: beat must be strong enough
-				// Require moderately strong beats to balance accuracy vs sensitivity
-				const isBeatStrong = beatStrength >= 1.7;
-
-				if (isBeatStrong) {
-					const beatEvent: BeatEvent = {
-						timestamp: now,
-						strength: beatStrength,
-						energy: peakEnergy,
-						avgEnergy: avgEnergy,
-						confidence: confidence,
-					};
-
-					this._lastBeatTime = now;
-					this._state.lastBeatTime = now;
-					this._state.beatCount++;
-
-					if (this._debugMode) {
-						console.log('[BeatDetector] 🔊 BEAT at peak', {
-							peakEnergy: peakEnergy.toFixed(4),
-							avgEnergy: avgEnergy.toFixed(4),
-							threshold: threshold.toFixed(4),
-							strength: beatStrength.toFixed(2),
-							peakDelay: (now - this._peakStartTime).toFixed(0) + 'ms',
-						});
-					}
-
-					this._emitEvent('beat', beatEvent);
-				} else if (this._debugMode) {
-					console.log('[BeatDetector] ❌ Peak too weak, ignoring', {
-						strength: beatStrength.toFixed(2),
-						minRequired: '1.5',
-					});
-				}
-
-				// Reset peak detection
-				this._isPeakMode = false;
-				this._peakDetectionWindow = [];
-			}
-		}
-
-		this._lastEnergy = instantEnergy;
 	};
 
 	/**
