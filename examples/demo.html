@@ -4,36 +4,14 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>audio.libx.js - Comprehensive Demo</title>
+        <link rel="stylesheet" href="./shared/styles.css">
         <style>
-            :root {
-                --primary-color: #007cba;
-                --primary-dark: #005a8b;
-                --secondary-color: #28a745;
-                --danger-color: #dc3545;
-                --warning-color: #ffc107;
-                --info-color: #17a2b8;
-                --light-bg: #f8f9fa;
-                --dark-bg: #343a40;
-                --border-color: #dee2e6;
-                --text-color: #212529;
-                --text-muted: #6c757d;
-                --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                --radius: 8px;
-                --transition: all 0.3s ease;
-            }
-
-            * {
-                box-sizing: border-box;
-            }
 
             body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                line-height: 1.6;
-                color: var(--text-color);
-                margin: 0;
-                padding: 0;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
+                margin: 0;
+                padding: 0;
             }
 
             .header {
@@ -182,16 +160,13 @@
                 align-items: center;
                 gap: 0.5rem;
                 text-decoration: none;
+                background: var(--primary-color);
+                color: white;
             }
 
             .btn-primary {
                 background: var(--primary-color);
                 color: white;
-            }
-
-            .btn-primary:hover:not(:disabled) {
-                background: var(--primary-dark);
-                transform: translateY(-1px);
             }
 
             .btn-secondary {
@@ -1592,6 +1567,7 @@ await recording.onStarted;</code></pre>
                 RealtimeAudioProcessor,
                 MediaSourceHelper,
             } from '../build/index.js';
+            import { logEvent, updateStatus, formatFileSize, formatDuration, initializeRangeInputs } from './shared/utils.js';
 
             // Global state
             let activeTab = 'overview';
@@ -1663,54 +1639,7 @@ await recording.onStarted;</code></pre>
                 }
             }
 
-            // Utility functions
-            function logEvent(logElementId, message, data = null) {
-                const timestamp = new Date().toLocaleTimeString();
-                const logElement = document.getElementById(logElementId);
-                const logEntry = document.createElement('div');
-                logEntry.className = 'log-entry';
-
-                let html = `<span class="log-timestamp">[${timestamp}]</span> <span class="log-message">${message}</span>`;
-                if (data) {
-                    html += ` <span class="log-data">${JSON.stringify(data)}</span>`;
-                }
-
-                logEntry.innerHTML = html;
-                logElement.appendChild(logEntry);
-                logElement.scrollTop = logElement.scrollHeight;
-            }
-
-            function updateStatus(statusElementId, message, type = 'info') {
-                const statusElement = document.getElementById(statusElementId);
-                statusElement.textContent = message;
-                statusElement.className = `status ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
-            }
-
-            function formatFileSize(bytes) {
-                if (bytes < 1024) return bytes + ' B';
-                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-            }
-
-            function formatDuration(ms) {
-                const seconds = Math.floor(ms / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = seconds % 60;
-                return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-            }
-
-            // Initialize range inputs with value display
-            function initializeRangeInputs() {
-                const rangeInputs = document.querySelectorAll('input[type="range"]');
-                rangeInputs.forEach((input) => {
-                    const valueElement = document.getElementById(input.id + 'Value');
-                    if (valueElement) {
-                        input.addEventListener('input', () => {
-                            valueElement.textContent = input.value;
-                        });
-                    }
-                });
-            }
+            // Utility functions already imported from shared/utils.js
 
             // Initialize on page load
             document.addEventListener('DOMContentLoaded', () => {

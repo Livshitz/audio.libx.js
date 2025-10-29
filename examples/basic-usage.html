@@ -5,121 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>audio.libx.js - Basic Usage Example</title>
-	<style>
-		body {
-			font-family: Arial, sans-serif;
-			max-width: 800px;
-			margin: 0 auto;
-			padding: 20px;
-			line-height: 1.6;
-		}
-
-		.container {
-			background: #f5f5f5;
-			padding: 20px;
-			border-radius: 8px;
-			margin: 20px 0;
-		}
-
-		button {
-			background: #007cba;
-			color: white;
-			border: none;
-			padding: 10px 20px;
-			border-radius: 4px;
-			cursor: pointer;
-			margin: 5px;
-		}
-
-		button:hover {
-			background: #005a8b;
-		}
-
-		button:disabled {
-			background: #ccc;
-			cursor: not-allowed;
-		}
-
-		.progress {
-			width: 100%;
-			height: 20px;
-			background: #ddd;
-			border-radius: 10px;
-			overflow: hidden;
-			margin: 10px 0;
-		}
-
-		.progress-bar {
-			height: 100%;
-			background: #007cba;
-			width: 0%;
-			transition: width 0.3s ease;
-		}
-
-		.status {
-			padding: 10px;
-			margin: 10px 0;
-			border-radius: 4px;
-			background: #e7f3ff;
-			border-left: 4px solid #007cba;
-		}
-
-		.error {
-			background: #ffe7e7;
-			border-left-color: #ff0000;
-		}
-
-		.controls {
-			display: flex;
-			gap: 10px;
-			flex-wrap: wrap;
-			align-items: center;
-		}
-
-		input[type="url"] {
-			flex: 1;
-			padding: 8px;
-			border: 1px solid #ddd;
-			border-radius: 4px;
-			min-width: 200px;
-		}
-
-		.stats {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-			gap: 10px;
-			margin: 10px 0;
-		}
-
-		.stat-item {
-			background: white;
-			padding: 10px;
-			border-radius: 4px;
-			text-align: center;
-		}
-
-		.stat-value {
-			font-size: 1.5em;
-			font-weight: bold;
-			color: #007cba;
-		}
-
-		.log {
-			background: #f9f9f9;
-			border: 1px solid #ddd;
-			border-radius: 4px;
-			padding: 10px;
-			max-height: 200px;
-			overflow-y: auto;
-			font-family: monospace;
-			font-size: 12px;
-		}
-
-		audio {
-			width: 100%;
-			margin: 10px 0;
-		}
-	</style>
+	<link rel="stylesheet" href="./shared/styles.css">
 </head>
 
 <body>
@@ -204,6 +90,7 @@
 	<script type="module">
 		// Import the library (in real usage, this would be from npm or CDN)
 		import { createAudioStreamer } from '../build/index.js';
+		import { logEvent, updateStatus, formatFileSize, formatDuration } from './shared/utils.js';
 
 		// Get DOM elements
 		const audioPlayer = document.getElementById('audioPlayer');
@@ -260,7 +147,7 @@
 			streamer.on('cacheHit', handleCacheHit);
 			streamer.on('cacheMiss', handleCacheMiss);
 
-			logEvent('Streamer initialized with options:', options);
+			logEventLocal('Streamer initialized with options:', options);
 		}
 
 		// Event handlers
@@ -272,23 +159,23 @@
 				streamBtn.disabled = false;
 			}
 
-			logEvent(`State changed to: ${event.data.state}`, event.data);
+			logEventLocal(`State changed to: ${event.data.state}`, event.data);
 		}
 
 		function handleBufferProgress(event) {
 			const progress = Math.round(event.data * 100);
 			bufferProgress.style.width = `${progress}%`;
-			logEvent(`Buffer progress: ${progress}%`);
+			logEventLocal(`Buffer progress: ${progress}%`);
 		}
 
 		function handleCanPlay(event) {
-			logEvent('Audio can play', event.audioId);
+			logEventLocal('Audio can play', event.audioId);
 		}
 
 		function handleLoadStart(event) {
 			streamBtn.disabled = true;
-			updateStatus('Loading audio...', false);
-			logEvent('Load started', event.audioId);
+			updateStatusLocal('Loading audio...', false);
+			logEventLocal('Load started', event.audioId);
 		}
 
 		function handleLoadEnd(event) {
@@ -296,53 +183,45 @@
 			if (currentAudioId) {
 				playFromCacheBtn.disabled = false;
 			}
-			updateStatus('Audio loaded successfully', false);
-			logEvent('Load ended', event.audioId);
+			updateStatusLocal('Audio loaded successfully', false);
+			logEventLocal('Load ended', event.audioId);
 			updateStats();
 		}
 
 		function handlePlayStart(event) {
-			updateStatus('Playing audio...', false);
-			logEvent('Playback started', event.audioId);
+			updateStatusLocal('Playing audio...', false);
+			logEventLocal('Playback started', event.audioId);
 		}
 
 		function handlePlayEnd(event) {
 			streamBtn.disabled = false;
-			updateStatus('Playback finished', false);
-			logEvent('Playback ended', event.audioId);
+			updateStatusLocal('Playback finished', false);
+			logEventLocal('Playback ended', event.audioId);
 		}
 
 		function handleError(event) {
 			streamBtn.disabled = false;
-			updateStatus(`Error: ${event.data?.message || 'Unknown error'}`, true);
-			logEvent('Error occurred:', event.data);
+			updateStatusLocal(`Error: ${event.data?.message || 'Unknown error'}`, true);
+			logEventLocal('Error occurred:', event.data);
 		}
 
 		function handleCacheHit(event) {
-			logEvent('Cache hit', event.audioId);
+			logEventLocal('Cache hit', event.audioId);
 			updateStats();
 		}
 
 		function handleCacheMiss(event) {
-			logEvent('Cache miss', event.audioId);
+			logEventLocal('Cache miss', event.audioId);
 		}
 
 		// UI helper functions
-		function updateStatus(message, isError = false) {
-			status.textContent = message;
-			status.className = isError ? 'status error' : 'status';
-		}
+		const updateStatusLocal = (message, isError = false) => {
+			updateStatus('status', message, isError ? 'error' : 'info');
+		};
 
-		function logEvent(message, data = null) {
-			const timestamp = new Date().toLocaleTimeString();
-			const logEntry = document.createElement('div');
-			logEntry.innerHTML = `<strong>${timestamp}:</strong> ${message}`;
-			if (data) {
-				logEntry.innerHTML += ` <em>${JSON.stringify(data)}</em>`;
-			}
-			eventLog.appendChild(logEntry);
-			eventLog.scrollTop = eventLog.scrollHeight;
-		}
+		const logEventLocal = (message, data = null) => {
+			logEvent('eventLog', message, data);
+		};
 
 		async function updateStats() {
 			if (!streamer) return;
@@ -352,7 +231,7 @@
 				if (capabilities.caching) {
 					const stats = await streamer.getCacheStats();
 					cacheEntries.textContent = stats.entryCount;
-					cacheSize.textContent = (stats.totalSize / (1024 * 1024)).toFixed(2) + ' MB';
+					cacheSize.textContent = formatFileSize(stats.totalSize);
 					hitRatio.textContent = Math.round(stats.hitRatio * 100) + '%';
 				} else {
 					cacheEntries.textContent = 'N/A';
@@ -360,7 +239,7 @@
 					hitRatio.textContent = 'N/A';
 				}
 			} catch (error) {
-				logEvent('Failed to update stats:', error.message);
+				logEventLocal('Failed to update stats:', error.message);
 			}
 		}
 
@@ -368,7 +247,7 @@
 		streamBtn.addEventListener('click', async () => {
 			const url = audioUrl.value.trim();
 			if (!url) {
-				updateStatus('Please enter a valid audio URL', true);
+				updateStatusLocal('Please enter a valid audio URL', true);
 				return;
 			}
 
@@ -378,11 +257,11 @@
 
 				// Wait for loading to complete
 				await result.onLoaded;
-				logEvent('Audio loaded and ready to play');
+				logEventLocal('Audio loaded and ready to play');
 
 				// Optionally wait for playback to end
 				result.onEnded.then(() => {
-					logEvent('Playback completed');
+					logEventLocal('Playback completed');
 				});
 
 			} catch (error) {
@@ -392,14 +271,14 @@
 
 		playFromCacheBtn.addEventListener('click', async () => {
 			if (!currentAudioId) {
-				updateStatus('No audio in cache to play', true);
+				updateStatusLocal('No audio in cache to play', true);
 				return;
 			}
 
 			try {
 				const result = await streamer.playFromCache(currentAudioId);
 				await result.onLoaded;
-				logEvent('Playing from cache');
+				logEventLocal('Playing from cache');
 			} catch (error) {
 				handleError({ data: error });
 			}
@@ -410,8 +289,8 @@
 				await streamer.clearCache();
 				currentAudioId = null;
 				playFromCacheBtn.disabled = true;
-				updateStatus('Cache cleared', false);
-				logEvent('Cache cleared');
+				updateStatusLocal('Cache cleared', false);
+				logEventLocal('Cache cleared');
 				updateStats();
 			} catch (error) {
 				handleError({ data: error });
@@ -429,7 +308,7 @@
 
 		[enableCaching, enableTrimming, bufferThreshold].forEach(element => {
 			element.addEventListener('change', () => {
-				logEvent('Configuration changed, reinitializing streamer...');
+				logEventLocal('Configuration changed, reinitializing streamer...');
 				initializeStreamer();
 			});
 		});
@@ -438,7 +317,7 @@
 		document.addEventListener('DOMContentLoaded', () => {
 			initializeStreamer();
 			updateStats();
-			logEvent('Demo initialized');
+			logEventLocal('Demo initialized');
 		});
 
 		// Cleanup on page unload

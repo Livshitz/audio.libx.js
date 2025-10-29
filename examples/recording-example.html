@@ -4,41 +4,8 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>audio.libx.js - Recording Example</title>
+        <link rel="stylesheet" href="./shared/styles.css">
         <style>
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-                line-height: 1.6;
-            }
-
-            .container {
-                background: #f5f5f5;
-                padding: 20px;
-                border-radius: 8px;
-                margin: 20px 0;
-            }
-
-            button {
-                background: #007cba;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 4px;
-                cursor: pointer;
-                margin: 5px;
-            }
-
-            button:hover {
-                background: #005a8b;
-            }
-
-            button:disabled {
-                background: #ccc;
-                cursor: not-allowed;
-            }
-
             button.recording {
                 background: #dc3545;
                 animation: pulse 1s infinite;
@@ -54,32 +21,6 @@
                 100% {
                     opacity: 1;
                 }
-            }
-
-            .status {
-                padding: 10px;
-                margin: 10px 0;
-                border-radius: 4px;
-                background: #e7f3ff;
-                border-left: 4px solid #007cba;
-            }
-
-            .error {
-                background: #ffe7e7;
-                border-left-color: #ff0000;
-            }
-
-            .success {
-                background: #e7ffe7;
-                border-left-color: #00aa00;
-            }
-
-            .controls {
-                display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
-                align-items: center;
-                margin: 10px 0;
             }
 
             .level-meter {
@@ -130,17 +71,6 @@
                 gap: 5px;
             }
 
-            .log {
-                background: #f9f9f9;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                padding: 10px;
-                max-height: 200px;
-                overflow-y: auto;
-                font-family: monospace;
-                font-size: 12px;
-            }
-
             .config-section {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -152,21 +82,6 @@
                 display: flex;
                 flex-direction: column;
                 gap: 5px;
-            }
-
-            label {
-                font-weight: bold;
-            }
-
-            input[type='range'] {
-                width: 100%;
-            }
-
-            select,
-            input[type='number'] {
-                padding: 5px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
             }
 
             .visualizer {
@@ -264,6 +179,7 @@
         <script type="module">
             // Import the library
             import { createAudioRecorder, PermissionManager, RealtimeAudioProcessor } from '../build/index.js';
+            import { logEvent, updateStatus, formatFileSize, formatDuration } from './shared/utils.js';
 
             // Get DOM elements
             const startBtn = document.getElementById('startBtn');
@@ -336,34 +252,34 @@
                 recorder.on('durationUpdate', handleDurationUpdate);
                 recorder.on('recordingError', handleRecordingError);
 
-                logEvent('Recorder initialized with options:', options);
+                logEventLocal('Recorder initialized with options:', options);
             }
 
             // Event handlers
             function handlePermissionRequested(event) {
-                updateStatus('Requesting microphone permission...', false);
-                logEvent('Permission requested', event.recordingId);
+                updateStatusLocal('Requesting microphone permission...', false);
+                logEventLocal('Permission requested', event.recordingId);
             }
 
             function handlePermissionGranted(event) {
-                updateStatus('Permission granted', false);
-                logEvent('Permission granted', event.recordingId);
+                updateStatusLocal('Permission granted', false);
+                logEventLocal('Permission granted', event.recordingId);
             }
 
             function handlePermissionDenied(event) {
-                updateStatus(`Permission denied: ${event.data?.message || 'Unknown error'}`, true);
-                logEvent('Permission denied:', event.data);
+                updateStatusLocal(`Permission denied: ${event.data?.message || 'Unknown error'}`, true);
+                logEventLocal('Permission denied:', event.data);
                 resetButtons();
             }
 
             function handleRecordingStarted(event) {
-                updateStatus('Recording...', false);
+                updateStatusLocal('Recording...', false);
                 startBtn.disabled = true;
                 startBtn.classList.add('recording');
                 stopBtn.disabled = false;
                 pauseBtn.disabled = false;
                 resumeBtn.disabled = true;
-                logEvent('Recording started', event.recordingId);
+                logEventLocal('Recording started', event.recordingId);
 
                 // Set up real-time processor if enabled
                 if (realtimeProcessing.checked && recorder) {
@@ -372,35 +288,35 @@
             }
 
             function handleRecordingPaused(event) {
-                updateStatus('Recording paused', false);
+                updateStatusLocal('Recording paused', false);
                 pauseBtn.disabled = true;
                 resumeBtn.disabled = false;
-                logEvent('Recording paused', event.recordingId);
+                logEventLocal('Recording paused', event.recordingId);
             }
 
             function handleRecordingResumed(event) {
-                updateStatus('Recording resumed', false);
+                updateStatusLocal('Recording resumed', false);
                 pauseBtn.disabled = false;
                 resumeBtn.disabled = true;
-                logEvent('Recording resumed', event.recordingId);
+                logEventLocal('Recording resumed', event.recordingId);
             }
 
             function handleRecordingStopped(event) {
-                updateStatus('Processing recording...', false);
-                logEvent('Recording stopped', event.recordingId);
+                updateStatusLocal('Processing recording...', false);
+                logEventLocal('Recording stopped', event.recordingId);
             }
 
             function handleRecordingCompleted(event) {
-                updateStatus('Recording completed successfully', false);
+                updateStatusLocal('Recording completed successfully', false);
                 addRecording(event.data);
                 resetButtons();
-                logEvent('Recording completed:', event.data);
+                logEventLocal('Recording completed:', event.data);
             }
 
             function handleRecordingCancelled(event) {
-                updateStatus('Recording cancelled', false);
+                updateStatusLocal('Recording cancelled', false);
                 resetButtons();
-                logEvent('Recording cancelled', event.recordingId);
+                logEventLocal('Recording cancelled', event.recordingId);
             }
 
             function handleAudioLevel(event) {
@@ -415,22 +331,22 @@
             }
 
             function handleRecordingError(event) {
-                updateStatus(`Error: ${event.data?.message || 'Unknown error'}`, true);
+                updateStatusLocal(`Error: ${event.data?.message || 'Unknown error'}`, true);
                 resetButtons();
-                logEvent('Recording error:', event.data);
+                logEventLocal('Recording error:', event.data);
             }
 
             // UI helper functions
-            function updateStatus(message, isError = false) {
-                status.textContent = message;
-                status.className = isError ? 'status error' : 'status';
-            }
+            const updateStatusLocal = (message, isError = false) => {
+                updateStatus('status', message, isError ? 'error' : 'info');
+            };
+
+            const logEventLocal = (message, data = null) => {
+                logEvent('eventLog', message, data);
+            };
 
             function updateDuration(ms) {
-                const seconds = Math.floor(ms / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = seconds % 60;
-                duration.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+                duration.textContent = formatDuration(ms);
             }
 
             function updateLevelMeter(level) {
@@ -512,7 +428,7 @@
 				<div class="recording-item">
 					<div class="recording-info">
 						<strong>Recording ${index + 1}</strong><br>
-						Duration: ${formatDuration(recording.duration)}<br>
+						Duration: ${formatDurationLocal(recording.duration)}<br>
 						Size: ${formatFileSize(recording.blob.size)}<br>
 						Type: ${recording.mimeType}
 					</div>
@@ -527,28 +443,8 @@
                     .join('');
             }
 
-            function formatDuration(ms) {
-                const seconds = Math.floor(ms / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = seconds % 60;
-                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-            }
-
-            function formatFileSize(bytes) {
-                if (bytes < 1024) return bytes + ' B';
-                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-            }
-
-            function logEvent(message, data = null) {
-                const timestamp = new Date().toLocaleTimeString();
-                const logEntry = document.createElement('div');
-                logEntry.innerHTML = `<strong>${timestamp}:</strong> ${message}`;
-                if (data) {
-                    logEntry.innerHTML += ` <em>${JSON.stringify(data)}</em>`;
-                }
-                eventLog.appendChild(logEntry);
-                eventLog.scrollTop = eventLog.scrollHeight;
+            function formatDurationLocal(ms) {
+                return formatDuration(ms);
             }
 
             async function setupRealtimeProcessor() {
@@ -571,10 +467,10 @@
                             updateVisualizer(data);
                         });
 
-                        logEvent('Real-time processor started');
+                        logEventLocal('Real-time processor started');
                     }
                 } catch (error) {
-                    logEvent('Failed to setup real-time processor:', error.message);
+                    logEventLocal('Failed to setup real-time processor:', error.message);
                 }
             }
 
@@ -584,7 +480,7 @@
                 if (recording) {
                     const audio = new Audio(URL.createObjectURL(recording.blob));
                     audio.play();
-                    logEvent(`Playing recording ${index + 1}`);
+                    logEventLocal(`Playing recording ${index + 1}`);
                 }
             };
 
@@ -599,7 +495,7 @@
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
-                    logEvent(`Downloaded recording ${index + 1}`);
+                    logEventLocal(`Downloaded recording ${index + 1}`);
                 }
             };
 
@@ -607,7 +503,7 @@
                 if (confirm(`Delete recording ${index + 1}?`)) {
                     recordings.splice(index, 1);
                     updateRecordingsList();
-                    logEvent(`Deleted recording ${index + 1}`);
+                    logEventLocal(`Deleted recording ${index + 1}`);
                 }
             };
 
@@ -616,7 +512,7 @@
                 try {
                     currentRecording = await recorder.startRecording();
                     await currentRecording.onStarted;
-                    logEvent('Recording session started');
+                    logEventLocal('Recording session started');
                 } catch (error) {
                     handleRecordingError({ data: error });
                 }
@@ -626,7 +522,7 @@
                 if (currentRecording) {
                     try {
                         const recordingData = await currentRecording.stop();
-                        logEvent('Recording stopped manually');
+                        logEventLocal('Recording stopped manually');
                     } catch (error) {
                         handleRecordingError({ data: error });
                     }
@@ -659,19 +555,19 @@
                     const result = await permissionManager.testMicrophoneAccess();
 
                     if (result.granted) {
-                        updateStatus('Microphone permission test passed', false);
-                        logEvent('Permission test successful');
+                        updateStatusLocal('Microphone permission test passed', false);
+                        logEventLocal('Permission test successful');
                     } else {
-                        updateStatus(`Permission test failed: ${result.error?.message}`, true);
-                        logEvent('Permission test failed:', result.error);
+                        updateStatusLocal(`Permission test failed: ${result.error?.message}`, true);
+                        logEventLocal('Permission test failed:', result.error);
 
                         // Show guidance
                         const guidance = permissionManager.getPermissionErrorGuidance(result.error);
-                        logEvent('Guidance:', guidance);
+                        logEventLocal('Guidance:', guidance);
                     }
                 } catch (error) {
-                    updateStatus(`Permission test error: ${error.message}`, true);
-                    logEvent('Permission test error:', error);
+                    updateStatusLocal(`Permission test error: ${error.message}`, true);
+                    logEventLocal('Permission test error:', error);
                 }
             });
 
@@ -679,7 +575,7 @@
                 if (confirm('Clear all recordings?')) {
                     recordings = [];
                     updateRecordingsList();
-                    logEvent('All recordings cleared');
+                    logEventLocal('All recordings cleared');
                 }
             });
 
@@ -690,7 +586,7 @@
             // Config change handlers
             [mimeType, bitrate, maxDuration, echoCancellation, noiseSuppression, autoGainControl, realtimeProcessing].forEach((element) => {
                 element.addEventListener('change', () => {
-                    logEvent('Configuration changed, reinitializing recorder...');
+                    logEventLocal('Configuration changed, reinitializing recorder...');
                     initializeRecorder();
                 });
             });
@@ -698,7 +594,7 @@
             // Initialize on page load
             document.addEventListener('DOMContentLoaded', () => {
                 initializeRecorder();
-                logEvent('Recording demo initialized');
+                logEventLocal('Recording demo initialized');
             });
 
             // Cleanup on page unload
