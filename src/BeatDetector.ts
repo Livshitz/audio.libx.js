@@ -23,6 +23,15 @@ export class BeatDetector {
 	private _lastBeatTime: number = 0;
 	private _animationFrameId: number | null = null;
 	private _isConnected: boolean = false;
+	private _lastEnergy: number = 0;
+	private _peakDetectionWindow: number[] = [];
+	private _isPeakMode: boolean = false;
+	private _debugMode: boolean = false;
+	private _debugLogCounter: number = 0;
+	private _peakStartTime: number = 0;
+	private _beatIntervals: number[] = [];  // Track time between beats for tempo
+	private _estimatedBPM: number = 0;
+	private _expectedNextBeat: number = 0;
 
 	constructor(options: BeatDetectorOptions = {}) {
 		this._options = {
@@ -46,9 +55,9 @@ export class BeatDetector {
 		};
 	}
 
-    /**
-     * Connect to an audio element
-     */
+	/**
+	 * Connect to an audio element
+	 */
 	public async connectAudioElement(audioElement: HTMLAudioElement): Promise<void> {
 		try {
 			if (this._isConnected) {
@@ -63,7 +72,8 @@ export class BeatDetector {
 			this._audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 			this._analyserNode = this._audioContext.createAnalyser();
 			this._analyserNode.fftSize = this._options.fftSize;
-			this._analyserNode.smoothingTimeConstant = this._options.smoothingTimeConstant;
+			// Reduced smoothing for more responsive beat detection
+			this._analyserNode.smoothingTimeConstant = Math.min(0.5, this._options.smoothingTimeConstant);
 
 			this._sourceNode = this._audioContext.createMediaElementSource(audioElement);
 			this._sourceNode.connect(this._analyserNode);
@@ -89,7 +99,8 @@ export class BeatDetector {
 			this._audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 			this._analyserNode = this._audioContext.createAnalyser();
 			this._analyserNode.fftSize = this._options.fftSize;
-			this._analyserNode.smoothingTimeConstant = this._options.smoothingTimeConstant;
+			// Reduced smoothing for more responsive beat detection
+			this._analyserNode.smoothingTimeConstant = Math.min(0.5, this._options.smoothingTimeConstant);
 
 			this._sourceNode = this._audioContext.createMediaStreamSource(stream);
 			this._sourceNode.connect(this._analyserNode);
@@ -102,9 +113,9 @@ export class BeatDetector {
 		}
 	}
 
-    /**
-     * Start beat detection
-     */
+	/**
+	 * Start beat detection
+	 */
 	public start(): void {
 		if (!this._isConnected) {
 			throw new BeatDetectionError('No audio source connected. Call connectAudioElement() or connectMediaStream() first.');
@@ -116,6 +127,13 @@ export class BeatDetector {
 		this._energyHistory = [];
 		this._lastBeatTime = 0;
 		this._state.beatCount = 0;
+		this._lastEnergy = 0;
+		this._peakDetectionWindow = [];
+		this._isPeakMode = false;
+		this._peakStartTime = 0;
+		this._beatIntervals = [];
+		this._estimatedBPM = 0;
+		this._expectedNextBeat = 0;
 
 		this._detectLoop();
 	}
@@ -136,25 +154,25 @@ export class BeatDetector {
 		this._emitEvent('stopped', undefined);
 	}
 
-    /**
-     * Set sensitivity (0.5-5.0)
-     */
+	/**
+	 * Set sensitivity (0.5-5.0)
+	 */
 	public setSensitivity(value: number): void {
 		this._options.sensitivity = Math.max(0.5, Math.min(5.0, value));
 		this._state.config.sensitivity = this._options.sensitivity;
 	}
 
-    /**
-     * Set cooldown period in milliseconds
-     */
+	/**
+	 * Set cooldown period in milliseconds
+	 */
 	public setCooldown(ms: number): void {
 		this._options.cooldown = Math.max(0, ms);
 		this._state.config.cooldown = this._options.cooldown;
 	}
 
-    /**
-     * Set frequency range for analysis (0-1)
-     */
+	/**
+	 * Set frequency range for analysis (0-1)
+	 */
 	public setFrequencyRange(low: number, high: number): void {
 		this._options.frequencyRangeLow = Math.max(0, Math.min(1, low));
 		this._options.frequencyRangeHigh = Math.max(0, Math.min(1, high));
@@ -169,16 +187,24 @@ export class BeatDetector {
 		return { ...this._state };
 	}
 
-    /**
-     * Check if detection is running
-     */
+	/**
+	 * Check if detection is running
+	 */
 	public isRunning(): boolean {
 		return this._state.isRunning;
 	}
 
-    /**
-     * Disconnect from audio source
-     */
+	/**
+	 * Enable debug logging
+	 */
+	public setDebugMode(enabled: boolean): void {
+		this._debugMode = enabled;
+		console.log(`[BeatDetector] Debug mode ${enabled ? 'enabled' : 'disabled'}`);
+	}
+
+	/**
+	 * Disconnect from audio source
+	 */
 	public disconnect(): void {
 		this.stop();
 
@@ -195,9 +221,9 @@ export class BeatDetector {
 		this._isConnected = false;
 	}
 
-    /**
-     * Cleanup and destroy
-     */
+	/**
+	 * Cleanup and destroy
+	 */
 	public destroy(): void {
 		this.disconnect();
 
@@ -210,9 +236,9 @@ export class BeatDetector {
 		this._energyHistory = [];
 	}
 
-    /**
-     * Register event listener
-     */
+	/**
+	 * Register event listener
+	 */
 	public on(eventType: BeatDetectorEventType, callback: BeatDetectorEventCallback): void {
 		if (!this._eventCallbacks.has(eventType)) {
 			this._eventCallbacks.set(eventType, []);
@@ -220,9 +246,9 @@ export class BeatDetector {
 		this._eventCallbacks.get(eventType)!.push(callback);
 	}
 
-    /**
-     * Remove event listener
-     */
+	/**
+	 * Remove event listener
+	 */
 	public off(eventType: BeatDetectorEventType, callback: BeatDetectorEventCallback): void {
 		const callbacks = this._eventCallbacks.get(eventType);
 		if (callbacks) {
@@ -233,9 +259,9 @@ export class BeatDetector {
 		}
 	}
 
-    /**
-     * Beat detection loop
-     */
+	/**
+	 * Beat detection loop
+	 */
 	private _detectLoop = (): void => {
 		if (!this._state.isRunning) return;
 
@@ -265,46 +291,151 @@ export class BeatDetector {
 			this._energyHistory.shift();
 		}
 
-		// Need sufficient history for detection
-		if (this._energyHistory.length < this._options.energyHistorySize) return;
+		// Need minimum history for detection (reduced from full buffer)
+		if (this._energyHistory.length < Math.min(10, this._options.energyHistorySize)) return;
 
-		// Calculate statistical threshold
-		const avgEnergy = this._energyHistory.reduce((a, b) => a + b) / this._energyHistory.length;
-		const variance = this._energyHistory.reduce((sum, e) => sum + (e - avgEnergy) ** 2, 0) / this._energyHistory.length;
+		// Calculate adaptive threshold using very recent history for fast adaptation
+		const recentHistorySize = Math.min(15, this._energyHistory.length);
+		const recentHistory = this._energyHistory.slice(-recentHistorySize);
+		const avgEnergy = recentHistory.reduce((a, b) => a + b) / recentHistory.length;
+		const variance = recentHistory.reduce((sum, e) => sum + (e - avgEnergy) ** 2, 0) / recentHistory.length;
 		const stdDev = Math.sqrt(variance);
-		const threshold = avgEnergy + this._options.sensitivity * stdDev;
+
+		// Cap sensitivity to prevent over-detection
+		const effectiveSensitivity = Math.min(this._options.sensitivity, 2.0);
+		const threshold = avgEnergy + (effectiveSensitivity * stdDev * 0.85);
 
 		this._state.avgEnergy = avgEnergy;
 
-		// Detect beat
+		// Detect energy increase (potential beat onset)
+		const energyIncrease = instantEnergy - this._lastEnergy;
+		const isEnergyRising = energyIncrease > 0;
+
 		const now = performance.now();
-		if (
-			instantEnergy > threshold &&
-			instantEnergy > this._options.minEnergyThreshold &&
-			(now - this._lastBeatTime) > this._options.cooldown
-		) {
-			const beatStrength = (instantEnergy - avgEnergy) / (stdDev + 0.0001);
-			const confidence = Math.min(1, beatStrength / 5); // Normalize to 0-1
+		const timeSinceLastBeat = now - this._lastBeatTime;
 
-			const beatEvent: BeatEvent = {
-				timestamp: now,
-				strength: beatStrength,
-				energy: instantEnergy,
-				avgEnergy: avgEnergy,
-				confidence: confidence,
-			};
-
-			this._lastBeatTime = now;
-			this._state.lastBeatTime = now;
-			this._state.beatCount++;
-
-			this._emitEvent('beat', beatEvent);
+		// Debug logging (every 30 frames when enabled)
+		if (this._debugMode) {
+			this._debugLogCounter++;
+			if (this._debugLogCounter % 30 === 0) {
+				console.log('[BeatDetector Debug]', {
+					instantEnergy: instantEnergy.toFixed(4),
+					avgEnergy: avgEnergy.toFixed(4),
+					threshold: threshold.toFixed(4),
+					stdDev: stdDev.toFixed(4),
+					isRising: isEnergyRising,
+					isPeakMode: this._isPeakMode,
+					timeSinceBeat: timeSinceLastBeat.toFixed(0) + 'ms',
+				});
+			}
 		}
+
+		// Simplified beat detection: focus on strong, clear onsets
+		const energyJump = instantEnergy - this._lastEnergy;
+		const energyAboveAvg = instantEnergy - avgEnergy;
+
+		// Adaptive onset threshold: must be a VERY sharp rise
+		// Scale with stdDev but enforce a high minimum to avoid false positives
+		const onsetThreshold = Math.max(0.12, stdDev * 1.5);
+
+		// Must be significantly above average energy
+		const avgEnergyThreshold = Math.max(stdDev * 2.0, 0.08);
+
+		// Track peak detection window
+		this._peakDetectionWindow.push(instantEnergy);
+		if (this._peakDetectionWindow.length > 4) {
+			this._peakDetectionWindow.shift();
+		}
+
+		// State machine: idle -> detecting peak -> cooldown
+		if (!this._isPeakMode) {
+			// Strict onset requirements to reduce false positives
+			const hasSharpOnset = isEnergyRising && energyJump > onsetThreshold;
+			const wellAboveAverage = energyAboveAvg > avgEnergyThreshold;
+			const aboveThreshold = instantEnergy > threshold;
+			const aboveMinEnergy = instantEnergy > this._options.minEnergyThreshold;
+			const outsideCooldown = timeSinceLastBeat > this._options.cooldown;
+
+			// ALL conditions must be met
+			const hasOnset = hasSharpOnset && wellAboveAverage && aboveThreshold &&
+				aboveMinEnergy && outsideCooldown;
+
+			if (hasOnset) {
+				// Enter peak detection mode
+				this._isPeakMode = true;
+				this._peakStartTime = now;
+				this._peakDetectionWindow = [instantEnergy];
+
+				if (this._debugMode) {
+					console.log('[BeatDetector] 🎯 Onset detected, finding peak...', {
+						energy: instantEnergy.toFixed(4),
+						jump: energyJump.toFixed(4),
+						onsetThresh: onsetThreshold.toFixed(4),
+						aboveAvg: energyAboveAvg.toFixed(4),
+						avgThresh: avgEnergyThreshold.toFixed(4),
+					});
+				}
+			}
+		} else {
+			// In peak detection mode - wait for energy to stop rising or timeout
+			const peakTimeout = now - this._peakStartTime > 200; // Max 200ms to find peak (kick drums can have slow attack)
+			// Require sustained drop - energy must fall for 2 consecutive frames
+			const energyFalling = !isEnergyRising && this._peakDetectionWindow.length >= 3 &&
+				this._peakDetectionWindow[this._peakDetectionWindow.length - 1] < this._peakDetectionWindow[this._peakDetectionWindow.length - 2];
+
+			if (energyFalling || peakTimeout) {
+				// Found peak - trigger beat at the highest energy point
+				const peakEnergy = Math.max(...this._peakDetectionWindow);
+				const beatStrength = (peakEnergy - avgEnergy) / (stdDev + 0.0001);
+				const confidence = Math.min(1, beatStrength / 5);
+
+				// Additional validation: beat must be strong enough
+				// Require moderately strong beats to balance accuracy vs sensitivity
+				const isBeatStrong = beatStrength >= 1.7;
+
+				if (isBeatStrong) {
+					const beatEvent: BeatEvent = {
+						timestamp: now,
+						strength: beatStrength,
+						energy: peakEnergy,
+						avgEnergy: avgEnergy,
+						confidence: confidence,
+					};
+
+					this._lastBeatTime = now;
+					this._state.lastBeatTime = now;
+					this._state.beatCount++;
+
+					if (this._debugMode) {
+						console.log('[BeatDetector] 🔊 BEAT at peak', {
+							peakEnergy: peakEnergy.toFixed(4),
+							avgEnergy: avgEnergy.toFixed(4),
+							threshold: threshold.toFixed(4),
+							strength: beatStrength.toFixed(2),
+							peakDelay: (now - this._peakStartTime).toFixed(0) + 'ms',
+						});
+					}
+
+					this._emitEvent('beat', beatEvent);
+				} else if (this._debugMode) {
+					console.log('[BeatDetector] ❌ Peak too weak, ignoring', {
+						strength: beatStrength.toFixed(2),
+						minRequired: '1.5',
+					});
+				}
+
+				// Reset peak detection
+				this._isPeakMode = false;
+				this._peakDetectionWindow = [];
+			}
+		}
+
+		this._lastEnergy = instantEnergy;
 	};
 
-    /**
-     * Emit event to listeners
-     */
+	/**
+	 * Emit event to listeners
+	 */
 	private _emitEvent(type: BeatDetectorEventType, data: any): void {
 		const callbacks = this._eventCallbacks.get(type);
 		if (callbacks) {
