@@ -119,6 +119,11 @@ const server = http.createServer((req, res) => {
 		pathname = '/examples/demo.html';
 	}
 
+	// Handle beat detection demo shortcut
+	if (pathname === '/beat-detection-demo.html') {
+		pathname = '/examples/beat-detection-demo.html';
+	}
+
 	// Handle files in examples directory - if path starts with /files/, prepend /examples
 	if (pathname.startsWith('/files/')) {
 		pathname = '/examples' + pathname;

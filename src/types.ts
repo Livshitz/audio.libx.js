@@ -712,7 +712,18 @@ export interface AudioContextManagerOptions {
 }
 
 // BeatDetector Types
+
+/** Available beat detection algorithms */
+export type BeatDetectionAlgorithm = 
+    | 'energy' 
+    | 'spectral-flux' 
+    | 'frequency-band' 
+    | 'comb-filter';
+
 export interface BeatDetectorOptions {
+    /** Detection algorithm to use (default: 'energy') */
+    algorithm?: BeatDetectionAlgorithm;
+
     /** Sensitivity for beat detection (0.5-5.0, default: 2.0) */
     sensitivity?: number;
 
@@ -731,7 +742,7 @@ export interface BeatDetectorOptions {
     /** Minimum energy threshold to detect beats (0-1, default: 0.01) */
     minEnergyThreshold?: number;
 
-    /** FFT size for frequency analysis (default: 512) */
+    /** FFT size for frequency analysis (default: 512, 1024, 2048, 4096) */
     fftSize?: number;
 
     /** Smoothing time constant for analyser (0-1, default: 0.8) */
@@ -741,6 +752,9 @@ export interface BeatDetectorOptions {
 export interface BeatDetectorState {
     /** Whether beat detection is running */
     isRunning: boolean;
+
+    /** Current algorithm being used */
+    algorithm: BeatDetectionAlgorithm;
 
     /** Timestamp of last detected beat */
     lastBeatTime: number | null;
@@ -753,6 +767,9 @@ export interface BeatDetectorState {
 
     /** Total number of beats detected */
     beatCount: number;
+
+    /** Estimated BPM (if available) */
+    estimatedBPM: number | null;
 
     /** Current configuration */
     config: Required<BeatDetectorOptions>;
@@ -773,13 +790,20 @@ export interface BeatEvent {
 
     /** Confidence score (0-1) */
     confidence: number;
+
+    /** Algorithm that detected this beat */
+    algorithm: BeatDetectionAlgorithm;
+
+    /** Estimated BPM at time of detection (if available) */
+    bpm?: number;
 }
 
 export type BeatDetectorEventType =
     | 'beat'
     | 'started'
     | 'stopped'
-    | 'error';
+    | 'error'
+    | 'bpm-updated';
 
 export interface BeatDetectorEvent {
     type: BeatDetectorEventType;

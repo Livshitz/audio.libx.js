@@ -743,6 +743,7 @@
                 <button class="tab" data-tab="caching">💾 Caching</button>
                 <button class="tab" data-tab="realtime">📊 Real-time</button>
                 <button class="tab" data-tab="permissions">🔒 Permissions</button>
+                <button class="tab" data-tab="beatdetection">🥁 Beat Detection</button>
             </div>
 
             <div class="tab-content">
@@ -1576,6 +1577,155 @@ await recording.onStarted;</code></pre>
                         <button id="clearPermissionLogBtn" class="btn btn-secondary">Clear Log</button>
                     </div>
                 </div>
+<!-- Beat Detection Tab -->
+<div id="beatdetection" class="tab-pane">
+    <div class="section">
+        <h2 class="section-title">🥁 Beat Detection</h2>
+        <p class="section-description">
+            Real-time beat detection with multiple algorithms. Analyze music rhythms, detect drum beats, and sync visual
+            elements with audio.
+        </p>
+
+        <div class="info-card">
+            <div class="info-card-icon">🎯</div>
+            <div class="info-card-content">
+                <h3>Multiple Detection Algorithms</h3>
+                <p>Choose from Energy-Based, Spectral Flux, Multi-Band, and BPM-Locked detection methods. Each optimized
+                    for different music types and use cases.</p>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="beatOpenDemoBtn" class="btn btn-primary">🚀 Open Full Beat Detection Demo</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-title">📖 Quick Start</h3>
+        <div class="code-block">
+            <pre><code>import { BeatDetector } from 'audio.libx.js';
+
+// Create beat detector with algorithm choice
+const detector = new BeatDetector({
+    algorithm: 'energy',  // or 'spectral-flux', 'frequency-band', 'comb-filter'
+    sensitivity: 2.0,
+    cooldown: 200
+});
+
+// Connect to audio element
+await detector.connectAudioElement(audioElement);
+
+// Listen for beats
+detector.on('beat', (event) => {
+    console.log('Beat detected!', event.data);
+    // event.data: { timestamp, strength, confidence, bpm, algorithm }
+});
+
+// Start detection
+detector.start();</code></pre>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-title">🎵 Algorithm Comparison</h3>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Energy-Based</h3>
+                <p>Analyzes bass frequencies (60-180Hz) with adaptive thresholding. Best for bass-heavy electronic music
+                    and hip-hop.</p>
+                <ul>
+                    <li>✅ Fast and responsive</li>
+                    <li>✅ Great for kick drums</li>
+                    <li>⚠️ May miss subtle beats</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Spectral Flux</h3>
+                <p>Tracks changes in frequency spectrum over time. Excellent for complex rhythms and onset detection.
+                </p>
+                <ul>
+                    <li>✅ Detects all instruments</li>
+                    <li>✅ Good for complex music</li>
+                    <li>⚠️ More CPU intensive</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎹</div>
+                <h3>Multi-Band</h3>
+                <p>Analyzes multiple frequency bands with weighted combination. Versatile for various genres.</p>
+                <ul>
+                    <li>✅ Balanced detection</li>
+                    <li>✅ Genre-flexible</li>
+                    <li>⚠️ Moderate CPU usage</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>BPM-Locked</h3>
+                <p>Estimates tempo and locks onto BPM for predictive tracking. Ideal for consistent tempo music.</p>
+                <ul>
+                    <li>✅ Predictive tracking</li>
+                    <li>✅ BPM estimation</li>
+                    <li>⚠️ Needs stable tempo</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-title">💡 Use Cases</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Video Synchronization</span>
+                <p style="margin-top: 8px; font-size: 0.9em;">Sync video transitions and effects with music beats</p>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Visual Effects</span>
+                <p style="margin-top: 8px; font-size: 0.9em;">Trigger animations and lighting effects on beats</p>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Music Analysis</span>
+                <p style="margin-top: 8px; font-size: 0.9em;">Analyze rhythm patterns and tempo estimation</p>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Real-time DJ Tools</span>
+                <p style="margin-top: 8px; font-size: 0.9em;">Beat matching and tempo tracking for DJs</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3 class="section-title">🔧 API Reference</h3>
+        <div class="code-block">
+            <pre><code>// Switch algorithms on the fly
+detector.setAlgorithm('spectral-flux');
+
+// Adjust sensitivity (0.5 - 5.0)
+detector.setSensitivity(2.5);
+
+// Set cooldown between beats (ms)
+detector.setCooldown(150);
+
+// Get available algorithms
+const algorithms = detector.getAvailableAlgorithms();
+// ['energy', 'spectral-flux', 'frequency-band', 'comb-filter']
+
+// Get current state
+const state = detector.getState();
+// { isRunning, algorithm, beatCount, estimatedBPM, ... }
+
+// Listen for BPM updates
+detector.on('bpm-updated', (event) => {
+    console.log('BPM:', event.data.bpm);
+});</code></pre>
+        </div>
+    </div>
+</div>
             </div>
         </main>
 
@@ -1659,6 +1809,9 @@ await recording.onStarted;</code></pre>
                         break;
                     case 'permissions':
                         initializePermissions();
+                        break;
+                    case 'beatdetection':
+                        initializeBeatDetection();
                         break;
                 }
             }
@@ -2829,6 +2982,17 @@ await recording.onStarted;</code></pre>
                 updatePermissionStatus();
                 logEvent('permissionEventLog', 'Permission demo initialized');
             }
+
+                // Beat Detection Tab
+                function initializeBeatDetection() {
+                    const beatOpenDemoBtn = document.getElementById('beatOpenDemoBtn');
+
+                    if (beatOpenDemoBtn) {
+                        beatOpenDemoBtn.addEventListener('click', () => {
+                            window.open('/examples/beat-detection-demo.html', '_blank');
+                        });
+                    }
+                }
 
             // Playlist Management Tab
             function initializePlaylist() {

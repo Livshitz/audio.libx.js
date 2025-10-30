@@ -96,6 +96,7 @@ export type {
     AudioContextManagerOptions,
     PlatformType,
     // Beat Detection types
+    BeatDetectionAlgorithm,
     BeatDetectorOptions,
     BeatDetectorState,
     BeatEvent,
