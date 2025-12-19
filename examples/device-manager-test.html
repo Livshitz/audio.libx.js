@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeviceManager & AudioLevelAnalyzer Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .level-bar {
+            width: 100%;
+            height: 20px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .level-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #FFC107, #F44336);
+            transition: width 0.1s;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>DeviceManager & AudioLevelAnalyzer Test</h1>
+    
+    <div class="section">
+        <h2>DeviceManager Tests</h2>
+        <button onclick="testEnumerateDevices()">Enumerate Devices</button>
+        <button onclick="testBuildConstraints()">Build Constraints</button>
+        <button onclick="testSupportsOutput()">Check Output Support</button>
+        <pre id="deviceOutput"></pre>
+    </div>
+
+    <div class="section">
+        <h2>AudioLevelAnalyzer Test</h2>
+        <button onclick="startLevelTest()">Start Mic Test</button>
+        <button onclick="stopLevelTest()">Stop Mic Test</button>
+        <div class="level-bar">
+            <div class="level-fill" id="levelFill" style="width: 0%"></div>
+        </div>
+        <p>Level: <span id="levelText">0%</span></p>
+    </div>
+
+    <script type="module">
+        import { DeviceManager, AudioLevelAnalyzer } from '../build/index.js';
+
+        window.DeviceManager = DeviceManager;
+        window.AudioLevelAnalyzer = AudioLevelAnalyzer;
+        window.currentAnalyzer = null;
+        window.currentStream = null;
+
+        window.testEnumerateDevices = async () => {
+            const output = document.getElementById('deviceOutput');
+            try {
+                output.textContent = 'Enumerating devices...';
+                const { inputs, outputs } = await DeviceManager.enumerateDevices();
+                
+                let result = `Inputs (${inputs.length}):\n`;
+                inputs.forEach((device, i) => {
+                    result += `  ${i + 1}. ${device.label} (${device.deviceId.substring(0, 8)}...)\n`;
+                });
+                
+                result += `\nOutputs (${outputs.length}):\n`;
+                outputs.forEach((device, i) => {
+                    result += `  ${i + 1}. ${device.label} (${device.deviceId.substring(0, 8)}...)\n`;
+                });
+                
+                output.textContent = result;
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+        };
+
+        window.testBuildConstraints = () => {
+            const output = document.getElementById('deviceOutput');
+            const constraints = DeviceManager.buildConstraints({
+                deviceId: 'test-device-id',
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                channelCount: 1,
+                sampleRate: 48000
+            });
+            output.textContent = JSON.stringify(constraints, null, 2);
+        };
+
+        window.testSupportsOutput = () => {
+            const output = document.getElementById('deviceOutput');
+            const supported = DeviceManager.supportsOutputSelection();
+            output.textContent = `Output device selection (setSinkId) supported: ${supported}`;
+        };
+
+        window.startLevelTest = async () => {
+            try {
+                if (window.currentAnalyzer) {
+                    window.currentAnalyzer.destroy();
+                }
+                
+                const constraints = DeviceManager.buildConstraints({
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                });
+                
+                window.currentStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+                window.currentAnalyzer = new AudioLevelAnalyzer(window.currentStream, { fftSize: 256 });
+                
+                window.currentAnalyzer.onLevel((level) => {
+                    const percentage = Math.round(level * 100);
+                    document.getElementById('levelFill').style.width = percentage + '%';
+                    document.getElementById('levelText').textContent = percentage + '%';
+                });
+                
+                window.currentAnalyzer.start();
+                console.log('AudioLevelAnalyzer started');
+            } catch (error) {
+                console.error('Failed to start level test:', error);
+                alert('Failed to start mic test: ' + error.message);
+            }
+        };
+
+        window.stopLevelTest = () => {
+            if (window.currentAnalyzer) {
+                window.currentAnalyzer.destroy();
+                window.currentAnalyzer = null;
+            }
+            if (window.currentStream) {
+                window.currentStream.getTracks().forEach(t => t.stop());
+                window.currentStream = null;
+            }
+            document.getElementById('levelFill').style.width = '0%';
+            document.getElementById('levelText').textContent = '0%';
+            console.log('AudioLevelAnalyzer stopped');
+        };
+    </script>
+</body>
+</html>
+

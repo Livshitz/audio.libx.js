@@ -300,6 +300,22 @@ export class PermissionManager {
     }
 
     /**
+     * Get available audio output devices
+     */
+    public async getAudioOutputDevices(): Promise<MediaDeviceInfo[]> {
+        if (!navigator.mediaDevices?.enumerateDevices) {
+            throw new PermissionError('Device enumeration is not supported');
+        }
+
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            return devices.filter((device) => device.kind === 'audiooutput');
+        } catch (error) {
+            throw new PermissionError('Failed to enumerate audio devices', error as Error);
+        }
+    }
+
+    /**
      * Check if current browser is Safari
      */
     private _isSafari(): boolean {

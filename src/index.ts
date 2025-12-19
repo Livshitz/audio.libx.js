@@ -25,6 +25,8 @@ export { MediaSourceHelper } from './MediaSourceHelper.js';
 export { AudioRecorder } from './AudioRecorder.js';
 export { PermissionManager } from './PermissionManager.js';
 export { RealtimeAudioProcessor } from './RealtimeAudioProcessor.js';
+export { DeviceManager } from './DeviceManager.js';
+export { AudioLevelAnalyzer } from './AudioLevelAnalyzer.js';
 
 // Playlist and Sound Effects exports
 export { PlaylistManager } from './PlaylistManager.js';
@@ -146,6 +148,12 @@ export function createBeatDetector(options?: import('./types.js').BeatDetectorOp
 export function createMediaSessionManager(options?: import('./MediaSessionManager.js').MediaSessionOptions): MediaSessionManager {
     return new MediaSessionManager(options);
 }
+
+// Export DeviceManager types
+export type { DeviceManagerConstraints } from './DeviceManager.js';
+
+// Export AudioLevelAnalyzer types
+export type { AudioLevelAnalyzerOptions } from './AudioLevelAnalyzer.js';
 
 // Default export for CommonJS compatibility
 import { AudioStreamer } from './AudioStreamer.js';
