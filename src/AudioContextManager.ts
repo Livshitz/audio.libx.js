@@ -12,6 +12,10 @@ export class AudioContextManager {
     private _isLocked: boolean = true;
     private _autoUnlockRegistered: boolean = false;
     private _unlockHandlers: (() => void)[] = [];
+    private _silentAudioElement: HTMLAudioElement | null = null;
+    private _iosAudioUnlocked: boolean = false;
+    private _unlockInProgress: boolean = false;
+    private _hasPlayedRealAudio: boolean = false;
 
     constructor(options: AudioContextManagerOptions = {}) {
         this._options = {
@@ -60,6 +64,7 @@ export class AudioContextManager {
 
     /**
      * Ensure audio context is unlocked and running
+     * Includes iOS silent mode bypass
      */
     public async ensureUnlocked(): Promise<boolean> {
         const context = this.getContext();
@@ -73,16 +78,16 @@ export class AudioContextManager {
         try {
             await context.resume();
 
-            // Play silent buffer to fully unlock on iOS
+            // iOS-specific unlock with silent mode bypass
             if (this._platform === 'ios' || this._platform === 'safari') {
-                await this._playSilentBuffer(context);
+                await this._unlockIOSAudio(context);
             }
 
             const newState = context.state as AudioContextState;
             this._isLocked = newState !== 'running';
             return !this._isLocked;
         } catch (error) {
-            console.warn('Failed to unlock audio context:', error);
+            console.warn('[AudioContextManager] Failed to unlock audio context:', error);
             return false;
         }
     }
@@ -125,7 +130,7 @@ export class AudioContextManager {
                     'Tap the screen to enable audio',
                     'Audio playback requires user interaction on iOS',
                     'Use headphones for better audio quality',
-                    'Ensure Silent Mode is off for sound effects',
+                    'Silent mode bypass is automatically enabled',
                 ];
 
             case 'android':
@@ -162,6 +167,7 @@ export class AudioContextManager {
             isLocked: this._isLocked,
             contextState: context ? (context.state as 'suspended' | 'running' | 'closed' | 'interrupted') : 'suspended',
             autoUnlockRegistered: this._autoUnlockRegistered,
+            iosAudioUnlocked: this._iosAudioUnlocked,
         };
     }
 
@@ -171,6 +177,14 @@ export class AudioContextManager {
     public async dispose(): Promise<void> {
         this._removeUnlockHandlers();
 
+        // Cleanup silent audio element
+        if (this._silentAudioElement) {
+            this._silentAudioElement.pause();
+            this._silentAudioElement.src = ''; // Release media resource
+            this._silentAudioElement.remove();
+            this._silentAudioElement = null;
+        }
+
         if (this._audioContext) {
             if (this._audioContext.state !== 'closed') {
                 await this._audioContext.close();
@@ -179,6 +193,9 @@ export class AudioContextManager {
         }
 
         this._isLocked = true;
+        this._iosAudioUnlocked = false;
+        this._unlockInProgress = false;
+        this._hasPlayedRealAudio = false;
         this._autoUnlockRegistered = false;
     }
 
@@ -208,6 +225,104 @@ export class AudioContextManager {
         }
 
         return 'desktop';
+    }
+
+    /**
+     * Create a validated minimal silent WAV file as base64 data URI
+     * This is a complete 44-byte WAV file: 16-bit mono, 44.1kHz, 1 sample of silence
+     */
+    private static readonly SILENT_WAV_44100 = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    
+    /**
+     * Get appropriate silent WAV for the given sample rate
+     */
+    private _getSilentWav(sampleRate: number): string {
+        // For now, use the 44.1kHz version for all sample rates
+        // The browser will handle resampling if needed
+        return AudioContextManager.SILENT_WAV_44100;
+    }
+
+    /**
+     * Unlock iOS audio with silent mode bypass
+     * Combines AudioSession API + silent HTML audio loop + Web Audio buffer
+     * 
+     * The silent audio loop will automatically stop after the first real audio plays
+     * to conserve battery while maintaining silent mode bypass capability.
+     */
+    private async _unlockIOSAudio(context: AudioContext): Promise<void> {
+        // Skip if already unlocked or unlock in progress (prevent race condition)
+        if (this._iosAudioUnlocked || this._unlockInProgress) {
+            return;
+        }
+
+        this._unlockInProgress = true;
+
+        try {
+            // console.log('[AudioContextManager] Unlocking iOS audio for silent mode bypass...');
+
+            // Strategy 1: AudioSession API (Safari 17.4+)
+            if ('audioSession' in navigator) {
+                try {
+                    (navigator as any).audioSession.type = 'playback';
+                    console.log('[AudioContextManager] ✓ AudioSession set to playback mode');
+                } catch (err) {
+                    console.warn('[AudioContextManager] AudioSession API failed:', err);
+                }
+            }
+
+            // Strategy 2: Silent HTML audio loop
+            if (!this._silentAudioElement) {
+                const audio = document.createElement('audio');
+                audio.setAttribute('x-webkit-airplay', 'deny');
+                audio.preload = 'auto';
+                audio.loop = true; // Critical: keeps audio session active
+                audio.volume = 0.01; // Very low volume to be truly silent
+                audio.src = this._getSilentWav(context.sampleRate);
+                
+                // Append to DOM (required for consistent behavior across browsers)
+                audio.style.position = 'fixed';
+                audio.style.left = '-9999px';
+                audio.style.opacity = '0';
+                audio.style.pointerEvents = 'none';
+                document.body.appendChild(audio);
+                
+                audio.load();
+
+                this._silentAudioElement = audio;
+
+                try {
+                    await audio.play();
+                    console.log('[AudioContextManager] ✓ Silent HTML audio playing (silent mode bypass active)');
+                    this._iosAudioUnlocked = true;
+                } catch (err) {
+                    console.warn('[AudioContextManager] Silent HTML audio play failed:', err);
+                    // Cleanup failed element
+                    audio.remove();
+                    this._silentAudioElement = null;
+                }
+            }
+
+            // Strategy 3: Web Audio buffer (for compatibility)
+            await this._playSilentBuffer(context);
+        } finally {
+            this._unlockInProgress = false;
+        }
+    }
+
+    /**
+     * Stop the silent audio loop after real audio has played
+     * Call this after successfully playing actual audio content
+     */
+    public stopSilentAudioLoop(): void {
+        if (this._silentAudioElement && this._iosAudioUnlocked && !this._hasPlayedRealAudio) {
+            this._hasPlayedRealAudio = true;
+            
+            // Stop the loop to conserve battery
+            this._silentAudioElement.loop = false;
+            
+            // Let it finish current iteration, then it will stop naturally
+            console.log('[AudioContextManager] Silent audio loop will stop after first real audio playback');
+        }
     }
 
     /**

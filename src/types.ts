@@ -698,6 +698,9 @@ export interface AudioContextManagerState {
 
     /** Whether auto-unlock is registered */
     autoUnlockRegistered: boolean;
+
+    /** Whether iOS audio has been unlocked for silent mode bypass */
+    iosAudioUnlocked?: boolean;
 }
 
 export interface AudioContextManagerOptions {
