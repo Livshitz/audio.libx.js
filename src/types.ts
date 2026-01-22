@@ -712,6 +712,15 @@ export interface AudioContextManagerOptions {
 
     /** Whether to automatically try to unlock on first user gesture */
     autoUnlock?: boolean;
+
+    /** 
+     * iOS AudioSession type for audio routing. 
+     * - 'playback': For audio output only (default, optimized speaker volume)
+     * - 'play-and-record': For apps that also capture mic (required for STT/voice apps)
+     * Using 'play-and-record' when mic is active prevents iOS from toggling audio 
+     * session types which causes volume fluctuations.
+     */
+    audioSessionType?: 'playback' | 'play-and-record';
 }
 
 // BeatDetector Types

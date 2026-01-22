@@ -22,6 +22,8 @@ export class AudioContextManager {
             sampleRate: options.sampleRate ?? 44100,
             latencyHint: options.latencyHint ?? 'interactive',
             autoUnlock: options.autoUnlock ?? false,
+            // iOS AudioSession type: 'playback' (default) or 'play-and-record' (for apps with mic)
+            audioSessionType: options.audioSessionType ?? 'playback',
         };
 
         this._platform = this._detectPlatform();
@@ -263,8 +265,9 @@ export class AudioContextManager {
             // Strategy 1: AudioSession API (Safari 17.4+)
             if ('audioSession' in navigator) {
                 try {
-                    (navigator as any).audioSession.type = 'playback';
-                    console.log('[AudioContextManager] ✓ AudioSession set to playback mode');
+                    const sessionType = this._options.audioSessionType || 'playback';
+                    (navigator as any).audioSession.type = sessionType === 'play-and-record' ? 'play-and-record' : 'playback';
+                    console.log(`[AudioContextManager] ✓ AudioSession set to ${sessionType} mode`);
                 } catch (err) {
                     console.warn('[AudioContextManager] AudioSession API failed:', err);
                 }
