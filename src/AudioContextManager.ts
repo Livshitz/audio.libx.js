@@ -199,6 +199,7 @@ export class AudioContextManager {
         this._unlockInProgress = false;
         this._hasPlayedRealAudio = false;
         this._autoUnlockRegistered = false;
+        this.releaseSpeakerRouting();
     }
 
     /**
@@ -370,6 +371,34 @@ export class AudioContextManager {
      */
     public isSafari(): boolean {
         return this._platform === 'safari' || this._platform === 'ios';
+    }
+
+    /**
+     * iOS WebRTC loudspeaker unlock.
+     * iOS Safari routes WebRTC receive-only audio through the earpiece (very low volume).
+     * A brief getUserMedia call switches iOS to loudspeaker routing.
+     * The mic stream is kept alive (disabled, not stopped) — stopping reverts to earpiece.
+     * Returns true if unlocked or unnecessary (non-iOS). Call from a user gesture.
+     */
+    private _speakerStream: MediaStream | null = null;
+
+    public async ensureSpeakerRouting(): Promise<boolean> {
+        if (this._speakerStream) return true;
+        if (this._platform !== 'ios') return true;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getAudioTracks().forEach(t => { t.enabled = false; });
+            this._speakerStream = stream;
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    /** Release the iOS speaker routing stream (call on full app teardown only) */
+    public releaseSpeakerRouting(): void {
+        this._speakerStream?.getTracks().forEach(t => t.stop());
+        this._speakerStream = null;
     }
 }
 
